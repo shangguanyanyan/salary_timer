@@ -1007,25 +1007,6 @@ class _ConfigScreenState extends State<ConfigScreen> {
                           ),
                         ),
                         const Divider(height: 1, indent: 70),
-
-                        // Track Achievements Switch
-                        SwitchListTile(
-                          title: const Text('成就系统'),
-                          subtitle: const Text('追踪并解锁薪资成就'),
-                          value: _trackAchievements,
-                          onChanged: (value) {
-                            setState(() {
-                              _trackAchievements = value;
-                              // 自动保存设置
-                              _saveSettings();
-                            });
-                          },
-                          secondary: Icon(
-                            Icons.emoji_events,
-                            color: Theme.of(context).colorScheme.secondary,
-                          ),
-                        ),
-
                         // 自动计时设置入口
                         const Divider(height: 1, indent: 70),
                         ListTile(

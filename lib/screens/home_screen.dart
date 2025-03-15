@@ -70,7 +70,7 @@ class _HomeScreenState extends State<HomeScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Salary Timer'),
+        title: const Text('薪时计算器'),
         centerTitle: true,
         elevation: 0,
         actions: [

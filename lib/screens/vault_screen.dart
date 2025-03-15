@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/vault_service.dart';
 import '../models/earning_record.dart';
+import 'notifications_screen.dart';
+import '../services/notification_service.dart';
 
 class VaultScreen extends StatelessWidget {
   const VaultScreen({super.key});
@@ -9,12 +11,58 @@ class VaultScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final vaultService = Provider.of<VaultService>(context);
+    final notificationService = Provider.of<NotificationService>(context);
+    final unreadCount = notificationService.unreadCount;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('我的金库'),
         centerTitle: true,
         elevation: 0,
+        actions: [
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.notifications_outlined),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const NotificationsScreen(),
+                    ),
+                  );
+                },
+                tooltip: '通知',
+              ),
+              if (unreadCount > 0)
+                Positioned(
+                  top: 10,
+                  right: 10,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFB00020),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 12,
+                      minHeight: 12,
+                    ),
+                    child: Text(
+                      unreadCount > 9 ? '9+' : unreadCount.toString(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 8,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ],
       ),
       body: SafeArea(
         child: SingleChildScrollView(

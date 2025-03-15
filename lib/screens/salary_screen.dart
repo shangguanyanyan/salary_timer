@@ -781,7 +781,7 @@ class _SalaryScreenState extends State<SalaryScreen>
     final scaffoldMessenger = ScaffoldMessenger.of(context);
     try {
       // 创建一个自定义通知，让MainScreen监听并处理
-      TabChangeNotification(2).dispatch(context);
+      TabChangeNotification(3).dispatch(context);
     } catch (e) {
       scaffoldMessenger.showSnackBar(
         const SnackBar(content: Text('无法切换到设置页面，请手动切换')),
