@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'notifications_screen.dart';
 import '../services/notification_service.dart';
+import '../providers/data_provider.dart';
 
 class AchievementsScreen extends StatelessWidget {
   const AchievementsScreen({super.key});
@@ -9,7 +10,11 @@ class AchievementsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final notificationService = Provider.of<NotificationService>(context);
+    final dataProvider = Provider.of<DataProvider>(context);
     final unreadCount = notificationService.unreadCount;
+
+    // 获取里程碑数量
+    final milestonesCount = dataProvider.milestones.length;
 
     return Scaffold(
       appBar: AppBar(
@@ -82,7 +87,12 @@ class AchievementsScreen extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  _buildStatCard(context, '已解锁', '7', Icons.lock_open),
+                  _buildStatCard(
+                    context,
+                    '已解锁',
+                    '$milestonesCount',
+                    Icons.lock_open,
+                  ),
                   _buildStatCard(context, '进行中', '3', Icons.hourglass_top),
                   _buildStatCard(context, '总成就', '15', Icons.emoji_events),
                 ],

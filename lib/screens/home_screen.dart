@@ -4,6 +4,7 @@ import 'notifications_screen.dart';
 import '../services/notification_service.dart';
 import '../services/timer_service.dart';
 import '../services/vault_service.dart';
+import '../providers/data_provider.dart';
 
 // 视图类型枚举
 enum ViewType { day, week, month }
@@ -62,11 +63,11 @@ class _HomeScreenState extends State<HomeScreen>
   Widget build(BuildContext context) {
     final notificationService = Provider.of<NotificationService>(context);
     final timerService = Provider.of<TimerService>(context);
-    final vaultService = Provider.of<VaultService>(context);
+    final dataProvider = Provider.of<DataProvider>(context);
     final unreadCount = notificationService.unreadCount;
 
     // 根据当前视图类型获取相应的数据
-    final viewData = _getViewData(_currentViewType, vaultService);
+    final viewData = _getViewData(_currentViewType);
 
     return Scaffold(
       appBar: AppBar(
@@ -563,39 +564,56 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   // 根据视图类型获取相应的数据
-  _ViewData _getViewData(ViewType viewType, VaultService vaultService) {
+  _ViewData _getViewData(ViewType viewType) {
+    final dataProvider = Provider.of<DataProvider>(context, listen: false);
+
     switch (viewType) {
       case ViewType.day:
         return _ViewData(
-          earnings: vaultService.todayEarnings,
-          progress: 0.35,
-          workDuration: const Duration(hours: 2, minutes: 45),
-          achievements: 2,
-          totalEarnings: vaultService.weekEarnings,
-          averageEarnings: 432.45,
-          estimatedEarnings: 9513.90,
+          earnings: dataProvider.todayEarnings,
+          progress:
+              dataProvider.savingGoal > 0
+                  ? (dataProvider.todayEarnings / dataProvider.savingGoal * 100)
+                          .clamp(0, 100) /
+                      100
+                  : 0.35,
+          workDuration: dataProvider.todayWorkDuration,
+          achievements: dataProvider.milestones.length,
+          totalEarnings: dataProvider.weekEarnings,
+          averageEarnings: dataProvider.weekEarnings / 7, // 简单计算日均
+          estimatedEarnings: dataProvider.todayEarnings * 30, // 简单估算月收入
           isUpTrend: true,
         );
       case ViewType.week:
         return _ViewData(
-          earnings: vaultService.weekEarnings,
-          progress: 0.65,
-          workDuration: const Duration(hours: 18, minutes: 30),
-          achievements: 5,
-          totalEarnings: vaultService.monthEarnings,
-          averageEarnings: 2162.25,
-          estimatedEarnings: 9513.90,
+          earnings: dataProvider.weekEarnings,
+          progress:
+              dataProvider.savingGoal > 0
+                  ? (dataProvider.weekEarnings / dataProvider.savingGoal * 100)
+                          .clamp(0, 100) /
+                      100
+                  : 0.65,
+          workDuration: dataProvider.weekWorkDuration,
+          achievements: dataProvider.milestones.length,
+          totalEarnings: dataProvider.monthEarnings,
+          averageEarnings: dataProvider.weekEarnings / 4, // 简单计算周均
+          estimatedEarnings: dataProvider.weekEarnings * 4, // 简单估算月收入
           isUpTrend: true,
         );
       case ViewType.month:
         return _ViewData(
-          earnings: vaultService.monthEarnings,
-          progress: 0.80,
-          workDuration: const Duration(hours: 80, minutes: 15),
-          achievements: 12,
-          totalEarnings: vaultService.totalEarnings,
-          averageEarnings: 9513.90,
-          estimatedEarnings: 114166.80,
+          earnings: dataProvider.monthEarnings,
+          progress:
+              dataProvider.savingGoal > 0
+                  ? (dataProvider.monthEarnings / dataProvider.savingGoal * 100)
+                          .clamp(0, 100) /
+                      100
+                  : 0.80,
+          workDuration: dataProvider.monthWorkDuration,
+          achievements: dataProvider.milestones.length,
+          totalEarnings: dataProvider.totalEarnings,
+          averageEarnings: dataProvider.monthEarnings,
+          estimatedEarnings: dataProvider.monthEarnings * 12, // 简单估算年收入
           isUpTrend: false,
         );
     }

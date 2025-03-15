@@ -2,6 +2,9 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/earning_record.dart';
+import 'notification_service.dart';
+import '../screens/notifications_screen.dart';
+import '../providers/data_provider.dart';
 
 class VaultService extends ChangeNotifier {
   List<EarningRecord> _earningRecords = [];
@@ -14,6 +17,31 @@ class VaultService extends ChangeNotifier {
   double _savingGoal = 0.0;
   String _goalName = '';
   DateTime? _goalDeadline;
+
+  // 薪资里程碑
+  final List<double> _milestones = [100, 500, 1000, 5000, 10000, 50000, 100000];
+  final Map<String, double> _reachedMilestones = {};
+
+  // 通知服务
+  NotificationService? _notificationService;
+
+  // 数据提供者
+  DataProvider? _dataProvider;
+
+  // 设置通知服务
+  void setNotificationService(NotificationService service) {
+    _notificationService = service;
+  }
+
+  // 设置数据提供者
+  void setDataProvider(DataProvider provider) {
+    _dataProvider = provider;
+    // 从数据提供者加载数据
+    _savingGoal = provider.savingGoal;
+    _goalName = provider.goalName;
+    _goalDeadline = provider.goalDeadline;
+    notifyListeners();
+  }
 
   // Getters
   List<EarningRecord> get earningRecords => _earningRecords;
@@ -50,6 +78,9 @@ class VaultService extends ChangeNotifier {
       _goalName = prefs.getString('goal_name') ?? '';
       final deadlineStr = prefs.getString('goal_deadline');
       _goalDeadline = deadlineStr != null ? DateTime.parse(deadlineStr) : null;
+
+      // 加载已达成的里程碑
+      await _loadReachedMilestones();
 
       _calculateStatistics();
     } catch (e) {
@@ -152,7 +183,17 @@ class VaultService extends ChangeNotifier {
     );
 
     _earningRecords.add(record);
+
+    // 计算统计数据前的值
+    final previousTotalEarnings = _totalEarnings;
+    final previousTodayEarnings = _todayEarnings;
+
     _calculateStatistics();
+
+    // 检查并发送通知
+    _checkMilestones(previousTotalEarnings, previousTodayEarnings);
+    _checkGoalProgress();
+
     await _saveData();
     notifyListeners();
   }
@@ -163,11 +204,151 @@ class VaultService extends ChangeNotifier {
     String name, [
     DateTime? deadline,
   ]) async {
+    final previousGoal = _savingGoal;
+    final previousName = _goalName;
+
     _savingGoal = amount;
     _goalName = name;
     _goalDeadline = deadline;
+
+    // 如果是新设置或修改了目标，发送通知
+    if (_notificationService != null &&
+        (previousGoal != amount || previousName != name)) {
+      _notificationService!.addNotification(
+        NotificationItem(
+          title: '储蓄目标已设置',
+          message: '你设置了新的储蓄目标：$name (¥${amount.toStringAsFixed(2)})',
+          time: DateTime.now(),
+          type: NotificationType.update,
+          isRead: false,
+        ),
+      );
+    }
+
+    // 检查目标进度
+    _checkGoalProgress();
+
     await _saveData();
     notifyListeners();
+  }
+
+  // 检查薪资里程碑
+  void _checkMilestones(double previousTotal, double previousToday) {
+    if (_notificationService == null) return;
+
+    // 检查总收入里程碑
+    for (final milestone in _milestones) {
+      final key = 'total_$milestone';
+      if (previousTotal < milestone &&
+          _totalEarnings >= milestone &&
+          !_reachedMilestones.containsKey(key)) {
+        _reachedMilestones[key] = _totalEarnings;
+        _notificationService!.addNotification(
+          NotificationItem(
+            title: '薪资里程碑',
+            message: '恭喜！你的总收入已突破¥${milestone.toStringAsFixed(0)}。',
+            time: DateTime.now(),
+            type: NotificationType.milestone,
+            isRead: false,
+          ),
+        );
+      }
+    }
+
+    // 检查今日收入里程碑
+    final dailyMilestones = [100, 200, 500, 1000];
+    for (final milestone in dailyMilestones) {
+      final key = 'today_${DateTime.now().toString().split(' ')[0]}_$milestone';
+      if (previousToday < milestone &&
+          _todayEarnings >= milestone &&
+          !_reachedMilestones.containsKey(key)) {
+        _reachedMilestones[key] = _todayEarnings;
+        _notificationService!.addNotification(
+          NotificationItem(
+            title: '今日薪资里程碑',
+            message: '恭喜！你的今日收入已突破¥${milestone.toStringAsFixed(0)}。',
+            time: DateTime.now(),
+            type: NotificationType.milestone,
+            isRead: false,
+          ),
+        );
+      }
+    }
+
+    // 保存已达成的里程碑
+    _saveReachedMilestones();
+  }
+
+  // 检查目标进度
+  void _checkGoalProgress() {
+    if (_notificationService == null || _savingGoal <= 0) return;
+
+    // 检查是否达到目标的特定百分比
+    final progressPercentages = [25, 50, 75, 90, 100];
+    for (final percentage in progressPercentages) {
+      final key = 'goal_${_goalName}_$percentage';
+      final requiredAmount = _savingGoal * (percentage / 100);
+
+      if (_totalEarnings >= requiredAmount &&
+          !_reachedMilestones.containsKey(key)) {
+        _reachedMilestones[key] = _totalEarnings;
+
+        String message;
+        if (percentage == 100) {
+          message =
+              '恭喜！你已完成"$_goalName"储蓄目标 (¥${_savingGoal.toStringAsFixed(2)})。';
+        } else {
+          message = '你已完成"$_goalName"储蓄目标的$percentage%，继续加油！';
+        }
+
+        _notificationService!.addNotification(
+          NotificationItem(
+            title: '储蓄目标进度',
+            message: message,
+            time: DateTime.now(),
+            type: NotificationType.achievement,
+            isRead: false,
+          ),
+        );
+      }
+    }
+
+    // 保存已达成的里程碑
+    _saveReachedMilestones();
+  }
+
+  // 保存已达成的里程碑
+  Future<void> _saveReachedMilestones() async {
+    final prefs = await SharedPreferences.getInstance();
+    try {
+      await prefs.setString(
+        'reached_milestones',
+        jsonEncode(_reachedMilestones),
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error saving reached milestones: $e');
+      }
+    }
+  }
+
+  // 加载已达成的里程碑
+  Future<void> _loadReachedMilestones() async {
+    final prefs = await SharedPreferences.getInstance();
+    try {
+      final milestonesJson = prefs.getString('reached_milestones');
+      if (milestonesJson != null) {
+        final Map<String, dynamic> decoded = jsonDecode(milestonesJson);
+        _reachedMilestones.clear();
+        decoded.forEach((key, value) {
+          _reachedMilestones[key] = value.toDouble();
+        });
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error loading reached milestones: $e');
+      }
+    }
   }
 
   // 获取按日期分组的收入记录

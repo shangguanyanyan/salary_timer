@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/notification_service.dart';
+import '../providers/data_provider.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -25,6 +26,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   Widget build(BuildContext context) {
     return Consumer<NotificationService>(
       builder: (context, notificationService, child) {
+        final dataProvider = Provider.of<DataProvider>(context);
         final filteredNotifications = _getFilteredNotifications(
           notificationService,
         );
@@ -252,6 +254,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 enum NotificationType { achievement, milestone, reminder, report, update }
 
 class NotificationItem {
+  final String? id;
   final String title;
   final String message;
   final DateTime time;
@@ -259,6 +262,7 @@ class NotificationItem {
   bool isRead;
 
   NotificationItem({
+    this.id,
     required this.title,
     required this.message,
     required this.time,

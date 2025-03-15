@@ -4,6 +4,7 @@ import 'notifications_screen.dart';
 import 'overtime_settings_screen.dart';
 import '../services/notification_service.dart';
 import '../services/timer_service.dart';
+import '../providers/data_provider.dart';
 import '../main.dart';
 
 class SalaryScreen extends StatefulWidget {
@@ -55,8 +56,9 @@ class _SalaryScreenState extends State<SalaryScreen>
 
   @override
   Widget build(BuildContext context) {
-    final notificationService = Provider.of<NotificationService>(context);
     final timerService = Provider.of<TimerService>(context);
+    final notificationService = Provider.of<NotificationService>(context);
+    final dataProvider = Provider.of<DataProvider>(context);
     final unreadCount = notificationService.unreadCount;
 
     return Scaffold(

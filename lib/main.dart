@@ -10,10 +10,26 @@ import 'services/notification_service.dart';
 import 'services/timer_service.dart';
 import 'services/vault_service.dart';
 import 'services/vault_service_locator.dart';
+import 'database/data_service.dart';
+import 'providers/data_provider.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // 初始化数据服务
+  final dataProvider = DataProvider();
+  await dataProvider.initialize();
+
   // 创建服务实例
+  final notificationService = NotificationService();
+  final timerService = TimerService();
   final vaultService = VaultService();
+
+  // 设置服务之间的联动
+  vaultService.setNotificationService(notificationService);
+  timerService.setNotificationService(notificationService);
+  timerService.setDataProvider(dataProvider);
+  vaultService.setDataProvider(dataProvider);
 
   // 设置VaultServiceLocator
   VaultServiceLocator.instance.vaultService = vaultService;
@@ -21,8 +37,9 @@ void main() {
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => NotificationService()),
-        ChangeNotifierProvider(create: (_) => TimerService()),
+        ChangeNotifierProvider(create: (_) => dataProvider),
+        ChangeNotifierProvider(create: (_) => notificationService),
+        ChangeNotifierProvider(create: (_) => timerService),
         ChangeNotifierProvider(create: (_) => vaultService),
       ],
       child: const MyApp(),

@@ -7,6 +7,7 @@ import 'auto_timing_screen.dart';
 import 'overtime_settings_screen.dart';
 import '../services/notification_service.dart';
 import '../services/timer_service.dart';
+import '../providers/data_provider.dart';
 
 class ConfigScreen extends StatefulWidget {
   const ConfigScreen({super.key});
@@ -46,8 +47,19 @@ class _ConfigScreenState extends State<ConfigScreen> {
   void initState() {
     super.initState();
 
-    // 从SharedPreferences加载配置
-    _loadSettings();
+    // 从DataProvider加载配置
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final dataProvider = Provider.of<DataProvider>(context, listen: false);
+      final timerService = Provider.of<TimerService>(context, listen: false);
+
+      setState(() {
+        _hourlyRate = dataProvider.hourlyRate;
+        _hourlyController.text = _hourlyRate.toString();
+
+        // 更新其他设置
+        _updateAllSalaryData();
+      });
+    });
   }
 
   // 加载保存的设置
@@ -1007,6 +1019,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
                           ),
                         ),
                         const Divider(height: 1, indent: 70),
+
                         // 自动计时设置入口
                         const Divider(height: 1, indent: 70),
                         ListTile(
@@ -1167,28 +1180,14 @@ class _ConfigScreenState extends State<ConfigScreen> {
   }
 
   // 自动保存设置（不显示提示）
-  void _saveSettings() async {
-    if (_formKey.currentState!.validate()) {
-      // 保存设置到SharedPreferences
-      final prefs = await SharedPreferences.getInstance();
+  Future<void> _saveSettings() async {
+    final timerService = Provider.of<TimerService>(context, listen: false);
+    final dataProvider = Provider.of<DataProvider>(context, listen: false);
 
-      // 保存薪资数据
-      prefs.setDouble('hourly_rate', _hourlyRate);
-      prefs.setDouble('monthly_salary', _monthlySalary);
-      prefs.setDouble('daily_salary', _dailySalary);
-      prefs.setInt('work_hours_per_day', _workHoursPerDay);
-      prefs.setInt('work_days_per_week', _workDaysPerWeek);
+    // 更新时薪
+    timerService.hourlyRate = _hourlyRate;
 
-      // 保存其他设置
-      prefs.setBool('include_weekends', _includeWeekends);
-      prefs.setBool('enable_notifications', _enableNotifications);
-      prefs.setBool('track_achievements', _trackAchievements);
-      prefs.setString('currency', _currency);
-      prefs.setString('calculation_mode', _calculationMode);
-
-      // 更新TimerService中的时薪
-      final timerService = Provider.of<TimerService>(context, listen: false);
-      timerService.hourlyRate = _hourlyRate;
-    }
+    // 使用 DataProvider 保存设置
+    await dataProvider.saveHourlyRate(_hourlyRate);
   }
 }

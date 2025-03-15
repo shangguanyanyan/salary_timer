@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'vault_service.dart';
 import 'vault_service_locator.dart';
+import 'notification_service.dart';
+import '../screens/notifications_screen.dart';
+import '../providers/data_provider.dart';
 
 class TimerService extends ChangeNotifier {
   double _currentSalary = 0.0;
@@ -38,6 +41,37 @@ class TimerService extends ChangeNotifier {
   Duration _regularTime = Duration.zero; // 正常工作时间
   Duration _overtimeTime = Duration.zero; // 加班时间
 
+  // 工作时间提醒设置
+  bool _enableWorkTimeReminders = true; // 是否启用工作时间提醒
+  List<int> _reminderIntervals = [2, 4, 6, 8]; // 提醒间隔（小时）
+  final Map<int, bool> _sentReminders = {}; // 已发送的提醒
+
+  // 通知服务
+  NotificationService? _notificationService;
+
+  // 数据提供者
+  DataProvider? _dataProvider;
+
+  // 设置通知服务
+  void setNotificationService(NotificationService service) {
+    _notificationService = service;
+  }
+
+  // 设置数据提供者
+  void setDataProvider(DataProvider provider) {
+    _dataProvider = provider;
+    // 从数据提供者加载设置
+    _hourlyRate = provider.hourlyRate;
+    _autoTimingEnabled = provider.autoTimingEnabled;
+    _autoStartTime = provider.autoStartTime;
+    _autoEndTime = provider.autoEndTime;
+    _workDays = List.from(provider.workDays);
+    _enableOvertimeCalculation = provider.overtimeEnabled;
+    _regularHoursLimit = provider.regularHoursLimit;
+    _overtimeRate = provider.overtimeRate;
+    notifyListeners();
+  }
+
   // 获取当前薪资
   double get currentSalary => _currentSalary;
 
@@ -65,10 +99,30 @@ class TimerService extends ChangeNotifier {
   Duration get regularTime => _regularTime;
   Duration get overtimeTime => _overtimeTime;
 
+  // 工作时间提醒相关的getter
+  bool get enableWorkTimeReminders => _enableWorkTimeReminders;
+  List<int> get reminderIntervals => _reminderIntervals;
+
   // 设置时薪
   set hourlyRate(double rate) {
+    final previousRate = _hourlyRate;
     _hourlyRate = rate;
     _saveSettings();
+
+    // 发送时薪更新通知
+    if (_notificationService != null && previousRate != rate) {
+      _notificationService!.addNotification(
+        NotificationItem(
+          title: '时薪更新',
+          message:
+              '你的时薪已从¥${previousRate.toStringAsFixed(2)}更新为¥${rate.toStringAsFixed(2)}。',
+          time: DateTime.now(),
+          type: NotificationType.update,
+          isRead: false,
+        ),
+      );
+    }
+
     notifyListeners();
   }
 
@@ -139,6 +193,13 @@ class TimerService extends ChangeNotifier {
       _saveSettings();
       notifyListeners();
     }
+  }
+
+  // 设置工作时间提醒开关
+  set enableWorkTimeReminders(bool enabled) {
+    _enableWorkTimeReminders = enabled;
+    _saveSettings();
+    notifyListeners();
   }
 
   TimerService() {
@@ -333,6 +394,20 @@ class TimerService extends ChangeNotifier {
         _overtimeEarnings = 0.0;
         _regularTime = Duration.zero;
         _overtimeTime = Duration.zero;
+        _sentReminders.clear(); // 清除已发送的提醒
+
+        // 发送开始工作通知
+        if (_notificationService != null) {
+          _notificationService!.addNotification(
+            NotificationItem(
+              title: '开始工作',
+              message: '你已开始计时，当前时薪为¥${_hourlyRate.toStringAsFixed(2)}。',
+              time: DateTime.now(),
+              type: NotificationType.update,
+              isRead: false,
+            ),
+          );
+        }
       } else {
         // 如果是恢复工作，调整开始时间以保持已经工作的时间
         _startTime = DateTime.now().subtract(_elapsedTime);
@@ -340,46 +415,7 @@ class TimerService extends ChangeNotifier {
 
       // 启动计时器，每秒更新一次
       _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-        final now = DateTime.now();
-        _elapsedTime = now.difference(_startTime);
-
-        // 计算正常工作时间和加班时间
-        if (_enableOvertimeCalculation) {
-          final regularLimitSeconds = _regularHoursLimit * 3600; // 转换为秒
-
-          if (_elapsedTime.inSeconds <= regularLimitSeconds) {
-            // 全部是正常工作时间
-            _regularTime = _elapsedTime;
-            _overtimeTime = Duration.zero;
-
-            // 计算正常工作收入
-            _regularEarnings = _regularTime.inSeconds * (_hourlyRate / 3600);
-            _overtimeEarnings = 0.0;
-          } else {
-            // 部分是正常工作时间，部分是加班时间
-            _regularTime = Duration(seconds: regularLimitSeconds);
-            _overtimeTime = Duration(
-              seconds: _elapsedTime.inSeconds - regularLimitSeconds,
-            );
-
-            // 计算正常工作收入和加班收入
-            _regularEarnings = _regularTime.inSeconds * (_hourlyRate / 3600);
-            _overtimeEarnings =
-                _overtimeTime.inSeconds * (_hourlyRate / 3600 * _overtimeRate);
-          }
-
-          // 总收入是正常工作收入加上加班收入
-          _currentSalary = _regularEarnings + _overtimeEarnings;
-        } else {
-          // 不计算加班，所有时间都按正常工资计算
-          _regularTime = _elapsedTime;
-          _overtimeTime = Duration.zero;
-          _regularEarnings = _elapsedTime.inSeconds * (_hourlyRate / 3600);
-          _overtimeEarnings = 0.0;
-          _currentSalary = _regularEarnings;
-        }
-
-        notifyListeners();
+        _updateTimer();
       });
     } else {
       // 停止计时器
@@ -399,6 +435,34 @@ class TimerService extends ChangeNotifier {
             print('Error adding earning to vault: $e');
           }
         }
+
+        // 发送结束工作通知
+        if (_notificationService != null) {
+          _notificationService!.addNotification(
+            NotificationItem(
+              title: '结束工作',
+              message:
+                  '本次工作时长${formatDuration(_elapsedTime)}，共赚取¥${previousSalary.toStringAsFixed(2)}。',
+              time: DateTime.now(),
+              type: NotificationType.update,
+              isRead: false,
+            ),
+          );
+
+          // 如果有加班，发送加班通知
+          if (_enableOvertimeCalculation && previousOvertimeEarnings > 0) {
+            _notificationService!.addNotification(
+              NotificationItem(
+                title: '加班收入',
+                message:
+                    '本次工作中包含加班时长${formatDuration(_overtimeTime)}，加班收入¥${previousOvertimeEarnings.toStringAsFixed(2)}。',
+                time: DateTime.now(),
+                type: NotificationType.update,
+                isRead: false,
+              ),
+            );
+          }
+        }
       }
     }
 
@@ -416,6 +480,7 @@ class TimerService extends ChangeNotifier {
     _regularTime = Duration.zero;
     _overtimeTime = Duration.zero;
     _startTime = DateTime.now();
+    _sentReminders.clear(); // 清除已发送的提醒
     _saveSettings();
     notifyListeners();
   }
@@ -463,5 +528,95 @@ class TimerService extends ChangeNotifier {
     _autoStartTimer?.cancel();
     _autoEndTimer?.cancel();
     super.dispose();
+  }
+
+  // 更新计时器
+  void _updateTimer() {
+    if (_isWorking) {
+      final now = DateTime.now();
+      _elapsedTime = now.difference(_startTime);
+
+      // 计算薪资
+      _calculateSalary();
+
+      // 检查是否需要发送工作时间提醒
+      _checkWorkTimeReminders();
+
+      notifyListeners();
+    }
+  }
+
+  // 检查是否需要发送工作时间提醒
+  void _checkWorkTimeReminders() {
+    if (!_enableWorkTimeReminders || _notificationService == null) return;
+
+    final hours = _elapsedTime.inHours;
+
+    // 检查每个提醒间隔
+    for (final interval in _reminderIntervals) {
+      if (hours == interval && !_sentReminders.containsKey(interval)) {
+        _sentReminders[interval] = true;
+
+        String message;
+        if (interval >= 8) {
+          message = '你已连续工作$interval小时，建议休息一下或结束今天的工作。';
+        } else if (interval >= 6) {
+          message = '你已连续工作$interval小时，建议适当休息片刻。';
+        } else if (interval >= 4) {
+          message = '你已连续工作$interval小时，记得适当活动一下身体。';
+        } else {
+          message = '你已连续工作$interval小时，继续保持！';
+        }
+
+        _notificationService!.addNotification(
+          NotificationItem(
+            title: '工作时间提醒',
+            message: message,
+            time: DateTime.now(),
+            type: NotificationType.reminder,
+            isRead: false,
+          ),
+        );
+      }
+    }
+  }
+
+  // 计算薪资
+  void _calculateSalary() {
+    // 计算正常工作时间和加班时间
+    if (_enableOvertimeCalculation) {
+      final regularLimitSeconds = _regularHoursLimit * 3600; // 转换为秒
+
+      if (_elapsedTime.inSeconds <= regularLimitSeconds) {
+        // 全部是正常工作时间
+        _regularTime = _elapsedTime;
+        _overtimeTime = Duration.zero;
+
+        // 计算正常工作收入
+        _regularEarnings = _regularTime.inSeconds * (_hourlyRate / 3600);
+        _overtimeEarnings = 0.0;
+      } else {
+        // 部分是正常工作时间，部分是加班时间
+        _regularTime = Duration(seconds: regularLimitSeconds);
+        _overtimeTime = Duration(
+          seconds: _elapsedTime.inSeconds - regularLimitSeconds,
+        );
+
+        // 计算正常工作收入和加班收入
+        _regularEarnings = _regularTime.inSeconds * (_hourlyRate / 3600);
+        _overtimeEarnings =
+            _overtimeTime.inSeconds * (_hourlyRate / 3600 * _overtimeRate);
+      }
+
+      // 总收入是正常工作收入加上加班收入
+      _currentSalary = _regularEarnings + _overtimeEarnings;
+    } else {
+      // 不计算加班，所有时间都按正常工资计算
+      _regularTime = _elapsedTime;
+      _overtimeTime = Duration.zero;
+      _regularEarnings = _elapsedTime.inSeconds * (_hourlyRate / 3600);
+      _overtimeEarnings = 0.0;
+      _currentSalary = _regularEarnings;
+    }
   }
 }
