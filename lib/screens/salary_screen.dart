@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'dart:async';
 import 'notifications_screen.dart';
 import '../services/notification_service.dart';
+import '../services/timer_service.dart';
+import '../main.dart';
 
 class SalaryScreen extends StatefulWidget {
   const SalaryScreen({super.key});
@@ -13,12 +14,6 @@ class SalaryScreen extends StatefulWidget {
 
 class _SalaryScreenState extends State<SalaryScreen>
     with SingleTickerProviderStateMixin {
-  double _currentSalary = 0.0;
-  double _hourlyRate = 54.30; // Hourly rate in Yuan
-  Timer? _timer;
-  bool _isWorking = false;
-  final DateTime _startTime = DateTime.now();
-  Duration _elapsedTime = Duration.zero;
   late AnimationController _animationController;
 
   @override
@@ -28,53 +23,39 @@ class _SalaryScreenState extends State<SalaryScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1500),
     );
+
+    // 如果计时器正在运行，启动动画
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final timerService = Provider.of<TimerService>(context, listen: false);
+      if (timerService.isWorking) {
+        _animationController.repeat(reverse: true);
+      }
+    });
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
     _animationController.dispose();
     super.dispose();
   }
 
   void _toggleTimer() {
-    setState(() {
-      _isWorking = !_isWorking;
+    final timerService = Provider.of<TimerService>(context, listen: false);
+    timerService.toggleTimer();
 
-      if (_isWorking) {
-        // Start the animation
-        _animationController.repeat(reverse: true);
-
-        // Start the timer to update every second
-        _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-          final now = DateTime.now();
-          setState(() {
-            _elapsedTime = now.difference(_startTime);
-            // Calculate earned amount based on elapsed time (in hours) * hourly rate
-            _currentSalary = _elapsedTime.inSeconds * (_hourlyRate / 3600);
-          });
-        });
-      } else {
-        // Stop the animation
-        _animationController.stop();
-
-        // Stop the timer
-        _timer?.cancel();
-      }
-    });
-  }
-
-  String _formatDuration(Duration duration) {
-    String twoDigits(int n) => n.toString().padLeft(2, '0');
-    final hours = twoDigits(duration.inHours);
-    final minutes = twoDigits(duration.inMinutes.remainder(60));
-    final seconds = twoDigits(duration.inSeconds.remainder(60));
-    return '$hours:$minutes:$seconds';
+    if (timerService.isWorking) {
+      // 启动动画
+      _animationController.repeat(reverse: true);
+    } else {
+      // 停止动画
+      _animationController.stop();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final notificationService = Provider.of<NotificationService>(context);
+    final timerService = Provider.of<TimerService>(context);
     final unreadCount = notificationService.unreadCount;
 
     return Scaffold(
@@ -145,7 +126,7 @@ class _SalaryScreenState extends State<SalaryScreen>
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                     const SizedBox(width: 8),
-                    if (_isWorking)
+                    if (timerService.isWorking)
                       AnimatedBuilder(
                         animation: _animationController,
                         builder: (context, child) {
@@ -183,10 +164,10 @@ class _SalaryScreenState extends State<SalaryScreen>
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              _isWorking ? '正在计时' : '计时已暂停',
+                              timerService.isWorking ? '正在计时' : '计时已暂停',
                               style: TextStyle(
                                 color:
-                                    _isWorking
+                                    timerService.isWorking
                                         ? Colors.green
                                         : Theme.of(
                                           context,
@@ -215,7 +196,7 @@ class _SalaryScreenState extends State<SalaryScreen>
                                   ),
                                   const SizedBox(width: 4),
                                   Text(
-                                    _formatDuration(_elapsedTime),
+                                    _formatDuration(timerService.elapsedTime),
                                     style: TextStyle(
                                       fontFamily: 'monospace',
                                       fontWeight: FontWeight.bold,
@@ -232,7 +213,10 @@ class _SalaryScreenState extends State<SalaryScreen>
 
                         // Main amount display
                         TweenAnimationBuilder(
-                          tween: Tween<double>(begin: 0, end: _currentSalary),
+                          tween: Tween<double>(
+                            begin: 0,
+                            end: timerService.currentSalary,
+                          ),
                           duration: const Duration(milliseconds: 500),
                           builder: (context, value, child) {
                             return RichText(
@@ -286,69 +270,52 @@ class _SalaryScreenState extends State<SalaryScreen>
                           ),
                           child: Row(
                             children: [
-                              Icon(
-                                Icons.info_outline,
-                                color: Theme.of(context).colorScheme.tertiary,
-                                size: 20,
+                              GestureDetector(
+                                onTap: () {
+                                  _showHourlyRateExplanation(context);
+                                },
+                                child: Icon(
+                                  Icons.info_outline,
+                                  color: Theme.of(context).colorScheme.tertiary,
+                                  size: 20,
+                                ),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
-                                      '当前时薪率',
-                                      style: Theme.of(
-                                        context,
-                                      ).textTheme.bodyMedium?.copyWith(
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
                                     Row(
                                       children: [
                                         Text(
-                                          '¥${_hourlyRate.toStringAsFixed(2)}/小时',
-                                          style: TextStyle(
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.bold,
-                                            color:
-                                                Theme.of(
-                                                  context,
-                                                ).colorScheme.secondary,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 2,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: Colors.green.withOpacity(
-                                              0.1,
-                                            ),
-                                            borderRadius: BorderRadius.circular(
-                                              4,
-                                            ),
-                                          ),
-                                          child: Text(
-                                            '+8.6%',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.green,
-                                            ),
+                                          '当前时薪率',
+                                          style: Theme.of(
+                                            context,
+                                          ).textTheme.bodyMedium?.copyWith(
+                                            fontWeight: FontWeight.w500,
                                           ),
                                         ),
                                       ],
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      '¥${timerService.hourlyRate.toStringAsFixed(2)}/小时',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color:
+                                            Theme.of(
+                                              context,
+                                            ).colorScheme.secondary,
+                                      ),
                                     ),
                                   ],
                                 ),
                               ),
                               TextButton(
                                 onPressed: () {
-                                  // Handle rate adjustment
+                                  // 切换到设置tab页面
+                                  _navigateToConfigTab();
                                 },
                                 child: const Text('调整'),
                               ),
@@ -412,20 +379,22 @@ class _SalaryScreenState extends State<SalaryScreen>
                     onPressed: _toggleTimer,
                     style: ElevatedButton.styleFrom(
                       backgroundColor:
-                          _isWorking
+                          timerService.isWorking
                               ? const Color(0xFFB00020)
                               : Theme.of(context).colorScheme.primary,
                       foregroundColor:
-                          _isWorking
+                          timerService.isWorking
                               ? Colors.white
                               : Theme.of(context).colorScheme.onPrimary,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
-                    icon: Icon(_isWorking ? Icons.stop : Icons.play_arrow),
+                    icon: Icon(
+                      timerService.isWorking ? Icons.stop : Icons.play_arrow,
+                    ),
                     label: Text(
-                      _isWorking ? '停止工作' : '开始工作',
+                      timerService.isWorking ? '停止工作' : '开始工作',
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
@@ -464,5 +433,86 @@ class _SalaryScreenState extends State<SalaryScreen>
         Text(label, style: Theme.of(context).textTheme.bodySmall),
       ],
     );
+  }
+
+  String _formatDuration(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    final hours = twoDigits(duration.inHours);
+    final minutes = twoDigits(duration.inMinutes.remainder(60));
+    final seconds = twoDigits(duration.inSeconds.remainder(60));
+    return '$hours:$minutes:$seconds';
+  }
+
+  // 显示时薪率解释弹窗
+  void _showHourlyRateExplanation(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Row(
+            children: [
+              Icon(
+                Icons.info_outline,
+                color: Theme.of(context).colorScheme.secondary,
+                size: 24,
+              ),
+              const SizedBox(width: 8),
+              const Text('时薪率说明'),
+            ],
+          ),
+          content: const SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '时薪率是指您每小时工作可以赚取的薪资金额。',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                SizedBox(height: 12),
+                Text('应用会根据这个时薪率和您已工作的时间来计算当前已赚取的薪资。'),
+                SizedBox(height: 8),
+                Text('计算公式为：当前薪资 = 已工作时间（秒）×（时薪率 ÷ 3600）'),
+                SizedBox(height: 12),
+                Text('您可以在配置页面通过三种方式设置您的薪资：'),
+                SizedBox(height: 4),
+                Text('• 直接输入时薪'),
+                Text('• 输入日薪（应用会根据每日工作小时数计算时薪）'),
+                Text('• 输入月薪（应用会根据每月工作天数和每日工作小时数计算时薪）'),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('了解了'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _navigateToConfigTab();
+              },
+              child: const Text('去调整'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // 切换到设置tab页面
+  void _navigateToConfigTab() {
+    // 使用通知机制切换到设置页面（索引为2）
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    try {
+      // 创建一个自定义通知，让MainScreen监听并处理
+      TabChangeNotification(2).dispatch(context);
+    } catch (e) {
+      scaffoldMessenger.showSnackBar(
+        const SnackBar(content: Text('无法切换到设置页面，请手动切换')),
+      );
+    }
   }
 }

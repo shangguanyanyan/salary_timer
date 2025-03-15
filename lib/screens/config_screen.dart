@@ -3,7 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'notifications_screen.dart';
+import 'auto_timing_screen.dart';
 import '../services/notification_service.dart';
+import '../services/timer_service.dart';
 
 class ConfigScreen extends StatefulWidget {
   const ConfigScreen({super.key});
@@ -1022,6 +1024,26 @@ class _ConfigScreenState extends State<ConfigScreen> {
                             color: Theme.of(context).colorScheme.secondary,
                           ),
                         ),
+
+                        // 自动计时设置入口
+                        const Divider(height: 1, indent: 70),
+                        ListTile(
+                          title: const Text('自动计时设置'),
+                          subtitle: const Text('设置自动开始和结束计时的时间'),
+                          leading: Icon(
+                            Icons.schedule,
+                            color: Theme.of(context).colorScheme.secondary,
+                          ),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const AutoTimingScreen(),
+                              ),
+                            );
+                          },
+                        ),
                       ],
                     ),
                   ),
@@ -1160,6 +1182,10 @@ class _ConfigScreenState extends State<ConfigScreen> {
       prefs.setBool('track_achievements', _trackAchievements);
       prefs.setString('currency', _currency);
       prefs.setString('calculation_mode', _calculationMode);
+
+      // 更新TimerService中的时薪
+      final timerService = Provider.of<TimerService>(context, listen: false);
+      timerService.hourlyRate = _hourlyRate;
     }
   }
 }

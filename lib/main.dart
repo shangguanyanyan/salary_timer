@@ -6,11 +6,15 @@ import 'screens/config_screen.dart';
 import 'screens/achievements_screen.dart';
 import 'screens/notifications_screen.dart';
 import 'services/notification_service.dart';
+import 'services/timer_service.dart';
 
 void main() {
   runApp(
     MultiProvider(
-      providers: [ChangeNotifierProvider(create: (_) => NotificationService())],
+      providers: [
+        ChangeNotifierProvider(create: (_) => NotificationService()),
+        ChangeNotifierProvider(create: (_) => TimerService()),
+      ],
       child: const MyApp(),
     ),
   );
@@ -340,62 +344,75 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: _screens[_selectedIndex],
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: _onItemTapped,
-        backgroundColor: Theme.of(context).colorScheme.surface,
-        indicatorColor: Theme.of(
-          context,
-        ).colorScheme.secondary.withOpacity(0.2),
-        destinations: [
-          NavigationDestination(
-            icon: Icon(
-              Icons.home_outlined,
-              color: Theme.of(context).colorScheme.tertiary,
+    return NotificationListener<TabChangeNotification>(
+      onNotification: (notification) {
+        _onItemTapped(notification.tabIndex);
+        return true;
+      },
+      child: Scaffold(
+        body: _screens[_selectedIndex],
+        bottomNavigationBar: NavigationBar(
+          selectedIndex: _selectedIndex,
+          onDestinationSelected: _onItemTapped,
+          backgroundColor: Theme.of(context).colorScheme.surface,
+          indicatorColor: Theme.of(
+            context,
+          ).colorScheme.secondary.withOpacity(0.2),
+          destinations: [
+            NavigationDestination(
+              icon: Icon(
+                Icons.home_outlined,
+                color: Theme.of(context).colorScheme.tertiary,
+              ),
+              selectedIcon: Icon(
+                Icons.home,
+                color: Theme.of(context).colorScheme.secondary,
+              ),
+              label: '首页',
             ),
-            selectedIcon: Icon(
-              Icons.home,
-              color: Theme.of(context).colorScheme.secondary,
+            NavigationDestination(
+              icon: Icon(
+                Icons.monetization_on_outlined,
+                color: Theme.of(context).colorScheme.tertiary,
+              ),
+              selectedIcon: Icon(
+                Icons.monetization_on,
+                color: Theme.of(context).colorScheme.secondary,
+              ),
+              label: '薪资',
             ),
-            label: '首页',
-          ),
-          NavigationDestination(
-            icon: Icon(
-              Icons.monetization_on_outlined,
-              color: Theme.of(context).colorScheme.tertiary,
+            NavigationDestination(
+              icon: Icon(
+                Icons.settings_outlined,
+                color: Theme.of(context).colorScheme.tertiary,
+              ),
+              selectedIcon: Icon(
+                Icons.settings,
+                color: Theme.of(context).colorScheme.secondary,
+              ),
+              label: '配置',
             ),
-            selectedIcon: Icon(
-              Icons.monetization_on,
-              color: Theme.of(context).colorScheme.secondary,
+            NavigationDestination(
+              icon: Icon(
+                Icons.emoji_events_outlined,
+                color: Theme.of(context).colorScheme.tertiary,
+              ),
+              selectedIcon: Icon(
+                Icons.emoji_events,
+                color: Theme.of(context).colorScheme.secondary,
+              ),
+              label: '成就',
             ),
-            label: '薪资',
-          ),
-          NavigationDestination(
-            icon: Icon(
-              Icons.settings_outlined,
-              color: Theme.of(context).colorScheme.tertiary,
-            ),
-            selectedIcon: Icon(
-              Icons.settings,
-              color: Theme.of(context).colorScheme.secondary,
-            ),
-            label: '配置',
-          ),
-          NavigationDestination(
-            icon: Icon(
-              Icons.emoji_events_outlined,
-              color: Theme.of(context).colorScheme.tertiary,
-            ),
-            selectedIcon: Icon(
-              Icons.emoji_events,
-              color: Theme.of(context).colorScheme.secondary,
-            ),
-            label: '成就',
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
+}
+
+// 自定义通知类，用于跨组件通信
+class TabChangeNotification extends Notification {
+  final int tabIndex;
+
+  TabChangeNotification(this.tabIndex);
 }
