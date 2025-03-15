@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'notifications_screen.dart';
 import '../services/notification_service.dart';
 
@@ -41,16 +42,44 @@ class _ConfigScreenState extends State<ConfigScreen> {
   @override
   void initState() {
     super.initState();
-    // 初始化日薪和月薪 - 基于默认时薪和工作时间
-    _calculateDailySalaryFromHourly();
-    _calculateMonthlySalaryFromDaily();
 
-    // Initialize controllers with current values
-    _monthlyController.text = _monthlySalary.toString();
-    _dailyController.text = _dailySalary.toString();
-    _hourlyController.text = _hourlyRate.toString();
-    _workHoursController.text = _workHoursPerDay.toString();
-    _workDaysController.text = _workDaysPerWeek.toString();
+    // 从SharedPreferences加载配置
+    _loadSettings();
+  }
+
+  // 加载保存的设置
+  Future<void> _loadSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    setState(() {
+      // 加载薪资数据
+      _hourlyRate = prefs.getDouble('hourly_rate') ?? _hourlyRate;
+      _monthlySalary = prefs.getDouble('monthly_salary') ?? _monthlySalary;
+      _dailySalary = prefs.getDouble('daily_salary') ?? _dailySalary;
+      _workHoursPerDay = prefs.getInt('work_hours_per_day') ?? _workHoursPerDay;
+      _workDaysPerWeek = prefs.getInt('work_days_per_week') ?? _workDaysPerWeek;
+
+      // 加载其他设置
+      _includeWeekends = prefs.getBool('include_weekends') ?? _includeWeekends;
+      _enableNotifications =
+          prefs.getBool('enable_notifications') ?? _enableNotifications;
+      _trackAchievements =
+          prefs.getBool('track_achievements') ?? _trackAchievements;
+      _currency = prefs.getString('currency') ?? _currency;
+      _calculationMode =
+          prefs.getString('calculation_mode') ?? _calculationMode;
+
+      // 初始化日薪和月薪 - 基于加载的数据
+      _calculateDailySalaryFromHourly();
+      _calculateMonthlySalaryFromDaily();
+
+      // 更新控制器的值
+      _monthlyController.text = _monthlySalary.toString();
+      _dailyController.text = _dailySalary.toString();
+      _hourlyController.text = _hourlyRate.toString();
+      _workHoursController.text = _workHoursPerDay.toString();
+      _workDaysController.text = _workDaysPerWeek.toString();
+    });
   }
 
   @override
@@ -100,25 +129,42 @@ class _ConfigScreenState extends State<ConfigScreen> {
 
   // 更新所有薪资数据
   void _updateAllSalaryData() {
+    // 保存当前输入模式下的值，避免被覆盖
     switch (_calculationMode) {
       case 'monthly':
+        // 如果是月薪模式，保留用户输入的月薪值
+        _monthlySalary =
+            double.tryParse(_monthlyController.text) ?? _monthlySalary;
         _calculateDailySalaryFromMonthly();
         _calculateHourlyRateFromDaily();
         break;
       case 'daily':
+        // 如果是日薪模式，保留用户输入的日薪值
+        _dailySalary = double.tryParse(_dailyController.text) ?? _dailySalary;
         _calculateHourlyRateFromDaily();
         _calculateMonthlySalaryFromDaily();
         break;
       case 'hourly':
+        // 如果是时薪模式，保留用户输入的时薪值
+        _hourlyRate = double.tryParse(_hourlyController.text) ?? _hourlyRate;
         _calculateDailySalaryFromHourly();
         _calculateMonthlySalaryFromDaily();
         break;
     }
 
-    // Update controller text values
-    _monthlyController.text = _monthlySalary.toString();
-    _dailyController.text = _dailySalary.toString();
-    _hourlyController.text = _hourlyRate.toString();
+    // 只更新非当前输入模式的控制器值
+    if (_calculationMode != 'monthly') {
+      _monthlyController.text = _monthlySalary.toString();
+    }
+    if (_calculationMode != 'daily') {
+      _dailyController.text = _dailySalary.toString();
+    }
+    if (_calculationMode != 'hourly') {
+      _hourlyController.text = _hourlyRate.toString();
+    }
+
+    // 自动保存设置
+    _saveSettings();
   }
 
   @override
@@ -176,7 +222,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.save),
-            onPressed: _saveSettings,
+            onPressed: _manualSaveSettings,
             tooltip: '保存设置',
           ),
         ],
@@ -290,6 +336,8 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                   onSelectionChanged: (Set<String> selection) {
                                     setState(() {
                                       _currency = selection.first;
+                                      // 自动保存设置
+                                      _saveSettings();
                                     });
                                   },
                                   style: ButtonStyle(
@@ -510,6 +558,9 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                               _dailySalary.toString();
                                           _hourlyController.text =
                                               _hourlyRate.toString();
+
+                                          // 自动保存设置
+                                          _saveSettings();
                                         });
                                       }
                                     },
@@ -579,6 +630,9 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                               _monthlySalary.toString();
                                           _hourlyController.text =
                                               _hourlyRate.toString();
+
+                                          // 自动保存设置
+                                          _saveSettings();
                                         });
                                       }
                                     },
@@ -698,6 +752,9 @@ class _ConfigScreenState extends State<ConfigScreen> {
                                                     _dailySalary.toString();
                                                 _monthlyController.text =
                                                     _monthlySalary.toString();
+
+                                                // 自动保存设置
+                                                _saveSettings();
                                               });
                                             }
                                           },
@@ -937,6 +994,8 @@ class _ConfigScreenState extends State<ConfigScreen> {
                           onChanged: (value) {
                             setState(() {
                               _enableNotifications = value;
+                              // 自动保存设置
+                              _saveSettings();
                             });
                           },
                           secondary: Icon(
@@ -954,6 +1013,8 @@ class _ConfigScreenState extends State<ConfigScreen> {
                           onChanged: (value) {
                             setState(() {
                               _trackAchievements = value;
+                              // 自动保存设置
+                              _saveSettings();
                             });
                           },
                           secondary: Icon(
@@ -991,7 +1052,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
                         const SizedBox(width: 16),
                         Expanded(
                           child: Text(
-                            '设置会自动保存并应用于收入计算和统计。',
+                            '所有设置会实时自动保存并应用于收入计算和统计。切换页面后设置将保持不变。',
                             style: TextStyle(
                               color: Theme.of(context).colorScheme.primary,
                             ),
@@ -1002,24 +1063,6 @@ class _ConfigScreenState extends State<ConfigScreen> {
                   ),
 
                   const SizedBox(height: 24),
-
-                  // Save Button
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: ElevatedButton.icon(
-                      onPressed: _saveSettings,
-                      icon: const Icon(Icons.save),
-                      label: const Text(
-                        '保存设置',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                    ),
-                  ),
                 ],
               ),
             ),
@@ -1085,16 +1128,38 @@ class _ConfigScreenState extends State<ConfigScreen> {
     );
   }
 
-  void _saveSettings() {
+  // 手动保存设置（显示提示）
+  void _manualSaveSettings() {
+    _saveSettings();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('设置已保存'),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: Theme.of(context).colorScheme.secondary,
+        duration: const Duration(seconds: 1),
+      ),
+    );
+  }
+
+  // 自动保存设置（不显示提示）
+  void _saveSettings() async {
     if (_formKey.currentState!.validate()) {
-      // TODO: Implement saving to shared preferences or database
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('设置已保存'),
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: Theme.of(context).colorScheme.secondary,
-        ),
-      );
+      // 保存设置到SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+
+      // 保存薪资数据
+      prefs.setDouble('hourly_rate', _hourlyRate);
+      prefs.setDouble('monthly_salary', _monthlySalary);
+      prefs.setDouble('daily_salary', _dailySalary);
+      prefs.setInt('work_hours_per_day', _workHoursPerDay);
+      prefs.setInt('work_days_per_week', _workDaysPerWeek);
+
+      // 保存其他设置
+      prefs.setBool('include_weekends', _includeWeekends);
+      prefs.setBool('enable_notifications', _enableNotifications);
+      prefs.setBool('track_achievements', _trackAchievements);
+      prefs.setString('currency', _currency);
+      prefs.setString('calculation_mode', _calculationMode);
     }
   }
 }
