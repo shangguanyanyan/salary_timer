@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../services/notification_service.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -8,120 +10,90 @@ class NotificationsScreen extends StatefulWidget {
 }
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
-  final List<NotificationItem> _notifications = [
-    NotificationItem(
-      title: '成就解锁',
-      message: '恭喜！你已解锁"薪资起步"成就。',
-      time: DateTime.now().subtract(const Duration(hours: 2)),
-      type: NotificationType.achievement,
-      isRead: false,
-    ),
-    NotificationItem(
-      title: '薪资里程碑',
-      message: '你的今日薪资已突破¥500。继续保持！',
-      time: DateTime.now().subtract(const Duration(hours: 5)),
-      type: NotificationType.milestone,
-      isRead: true,
-    ),
-    NotificationItem(
-      title: '工作时间提醒',
-      message: '你今日已连续工作6小时，建议休息片刻。',
-      time: DateTime.now().subtract(const Duration(days: 1)),
-      type: NotificationType.reminder,
-      isRead: true,
-    ),
-    NotificationItem(
-      title: '每周薪资报告',
-      message: '你的上周薪资总额为¥3,756.20，比前一周增长15%。',
-      time: DateTime.now().subtract(const Duration(days: 2)),
-      type: NotificationType.report,
-      isRead: false,
-    ),
-    NotificationItem(
-      title: '时薪更新',
-      message: '你的时薪已从¥50.00更新为¥54.30。',
-      time: DateTime.now().subtract(const Duration(days: 3)),
-      type: NotificationType.update,
-      isRead: true,
-    ),
-    NotificationItem(
-      title: '成就进度',
-      message: '你的"薪资大师"成就已完成45%。',
-      time: DateTime.now().subtract(const Duration(days: 4)),
-      type: NotificationType.achievement,
-      isRead: true,
-    ),
-  ];
-
   bool _showOnlyUnread = false;
 
-  List<NotificationItem> get _filteredNotifications {
+  List<NotificationItem> _getFilteredNotifications(
+    NotificationService service,
+  ) {
     if (_showOnlyUnread) {
-      return _notifications
-          .where((notification) => !notification.isRead)
-          .toList();
+      return service.unreadNotifications;
     }
-    return _notifications;
+    return service.notifications;
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('通知'),
-        centerTitle: true,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.done_all),
-            onPressed: _markAllAsRead,
-            tooltip: '全部标为已读',
-          ),
-        ],
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Filter Option
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              color: Theme.of(
-                context,
-              ).colorScheme.surfaceVariant.withOpacity(0.3),
-              child: Row(
-                children: [
-                  const Text('仅显示未读通知'),
-                  const Spacer(),
-                  Switch(
-                    value: _showOnlyUnread,
-                    onChanged: (value) {
-                      setState(() {
-                        _showOnlyUnread = value;
-                      });
-                    },
-                  ),
-                ],
-              ),
-            ),
+    return Consumer<NotificationService>(
+      builder: (context, notificationService, child) {
+        final filteredNotifications = _getFilteredNotifications(
+          notificationService,
+        );
 
-            // Notifications List
-            Expanded(
-              child:
-                  _filteredNotifications.isEmpty
-                      ? _buildEmptyState()
-                      : ListView.separated(
-                        itemCount: _filteredNotifications.length,
-                        separatorBuilder:
-                            (context, index) => const Divider(height: 1),
-                        itemBuilder: (context, index) {
-                          final notification = _filteredNotifications[index];
-                          return _buildNotificationItem(notification, index);
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('通知'),
+            centerTitle: true,
+            elevation: 0,
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.done_all),
+                onPressed: notificationService.markAllAsRead,
+                tooltip: '全部标为已读',
+              ),
+            ],
+          ),
+          body: SafeArea(
+            child: Column(
+              children: [
+                // Filter Option
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.surfaceVariant.withOpacity(0.3),
+                  child: Row(
+                    children: [
+                      const Text('仅显示未读通知'),
+                      const Spacer(),
+                      Switch(
+                        value: _showOnlyUnread,
+                        onChanged: (value) {
+                          setState(() {
+                            _showOnlyUnread = value;
+                          });
                         },
                       ),
+                    ],
+                  ),
+                ),
+
+                // Notifications List
+                Expanded(
+                  child:
+                      filteredNotifications.isEmpty
+                          ? _buildEmptyState()
+                          : ListView.separated(
+                            itemCount: filteredNotifications.length,
+                            separatorBuilder:
+                                (context, index) => const Divider(height: 1),
+                            itemBuilder: (context, index) {
+                              final notification = filteredNotifications[index];
+                              return _buildNotificationItem(
+                                notification,
+                                index,
+                                notificationService,
+                              );
+                            },
+                          ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -154,7 +126,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     );
   }
 
-  Widget _buildNotificationItem(NotificationItem notification, int index) {
+  Widget _buildNotificationItem(
+    NotificationItem notification,
+    int index,
+    NotificationService service,
+  ) {
     final IconData iconData = _getNotificationIcon(notification.type);
     final Color iconColor = _getNotificationColor(notification.type);
 
@@ -168,9 +144,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       ),
       direction: DismissDirection.endToStart,
       onDismissed: (direction) {
-        setState(() {
-          _notifications.remove(notification);
-        });
+        service.removeNotification(notification);
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -179,9 +153,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             action: SnackBarAction(
               label: '撤销',
               onPressed: () {
-                setState(() {
-                  _notifications.insert(index, notification);
-                });
+                service.addNotification(notification);
               },
             ),
           ),
@@ -228,7 +200,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   ),
                 )
                 : null,
-        onTap: () => _markAsRead(notification),
+        onTap: () => service.markAsRead(notification),
       ),
     );
   }
@@ -274,29 +246,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     } else {
       return '${difference.inDays} 天前';
     }
-  }
-
-  void _markAsRead(NotificationItem notification) {
-    if (!notification.isRead) {
-      setState(() {
-        notification.isRead = true;
-      });
-    }
-  }
-
-  void _markAllAsRead() {
-    setState(() {
-      for (final notification in _notifications) {
-        notification.isRead = true;
-      }
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('所有通知已标为已读'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
   }
 }
 
