@@ -307,4 +307,32 @@ class DataService {
   Future<Map<String, double>> getAllMilestones() async {
     return await _milestoneRepository.getAllMilestones();
   }
+
+  // 检查是否已初始化设置
+  Future<bool> hasInitializedSettings() async {
+    final prefs = await _settingsRepository.getSetting<bool>(
+      'has_initialized_settings',
+    );
+    return prefs ?? false;
+  }
+
+  // 标记设置已初始化
+  Future<void> markSettingsInitialized() async {
+    await _settingsRepository.saveSetting('has_initialized_settings', true);
+  }
+
+  // 保存月薪
+  Future<void> saveMonthlySalary(double salary) async {
+    await _settingsRepository.saveSetting('monthly_salary', salary);
+  }
+
+  // 保存每日工作小时
+  Future<void> saveWorkHoursPerDay(int hours) async {
+    await _settingsRepository.saveSetting('work_hours_per_day', hours);
+  }
+
+  // 保存每周工作天数
+  Future<void> saveWorkDaysPerWeek(int days) async {
+    await _settingsRepository.saveSetting('work_days_per_week', days);
+  }
 }

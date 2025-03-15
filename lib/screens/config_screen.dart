@@ -20,9 +20,9 @@ class _ConfigScreenState extends State<ConfigScreen> {
   final _formKey = GlobalKey<FormState>();
 
   // Form values
-  double _hourlyRate = 54.30;
-  double _monthlySalary = 8688.0; // 新增月薪变量，默认值为时薪*每日工作小时*每月工作日
-  double _dailySalary = 434.40; // 新增日薪变量，默认值为时薪*每日工作小时
+  double _hourlyRate = 50.0; // 根据月薪8000计算得出的时薪
+  double _monthlySalary = 8000.0; // 修改默认月薪为8000
+  double _dailySalary = 400.0; // 修改默认日薪为400（8000 / (5 * 4.345)）
   int _workHoursPerDay = 8;
   int _workDaysPerWeek = 5;
   bool _includeWeekends = false;
@@ -47,17 +47,24 @@ class _ConfigScreenState extends State<ConfigScreen> {
   void initState() {
     super.initState();
 
-    // 从DataProvider加载配置
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final dataProvider = Provider.of<DataProvider>(context, listen: false);
-      final timerService = Provider.of<TimerService>(context, listen: false);
+    // 初始化文本控制器的值
+    _monthlyController.text = _monthlySalary.toString();
+    _dailyController.text = _dailySalary.toString();
+    _hourlyController.text = _hourlyRate.toString();
+    _workHoursController.text = _workHoursPerDay.toString();
+    _workDaysController.text = _workDaysPerWeek.toString();
 
+    // 从DataProvider加载配置
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final dataProvider = Provider.of<DataProvider>(context, listen: false);
+
+      // 加载设置
       setState(() {
         _hourlyRate = dataProvider.hourlyRate;
         _hourlyController.text = _hourlyRate.toString();
 
-        // 更新其他设置
-        _updateAllSalaryData();
+        // 加载其他设置
+        _loadSettings();
       });
     });
   }
@@ -66,27 +73,34 @@ class _ConfigScreenState extends State<ConfigScreen> {
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
 
+    // 加载薪资数据
+    final savedHourlyRate = prefs.getDouble('hourly_rate');
+    final savedMonthlySalary = prefs.getDouble('monthly_salary');
+    final savedDailySalary = prefs.getDouble('daily_salary');
+    final savedWorkHoursPerDay = prefs.getInt('work_hours_per_day');
+    final savedWorkDaysPerWeek = prefs.getInt('work_days_per_week');
+
+    // 加载其他设置
+    final savedIncludeWeekends = prefs.getBool('include_weekends');
+    final savedEnableNotifications = prefs.getBool('enable_notifications');
+    final savedTrackAchievements = prefs.getBool('track_achievements');
+    final savedCurrency = prefs.getString('currency');
+    final savedCalculationMode = prefs.getString('calculation_mode');
+
     setState(() {
-      // 加载薪资数据
-      _hourlyRate = prefs.getDouble('hourly_rate') ?? _hourlyRate;
-      _monthlySalary = prefs.getDouble('monthly_salary') ?? _monthlySalary;
-      _dailySalary = prefs.getDouble('daily_salary') ?? _dailySalary;
-      _workHoursPerDay = prefs.getInt('work_hours_per_day') ?? _workHoursPerDay;
-      _workDaysPerWeek = prefs.getInt('work_days_per_week') ?? _workDaysPerWeek;
-
-      // 加载其他设置
-      _includeWeekends = prefs.getBool('include_weekends') ?? _includeWeekends;
-      _enableNotifications =
-          prefs.getBool('enable_notifications') ?? _enableNotifications;
-      _trackAchievements =
-          prefs.getBool('track_achievements') ?? _trackAchievements;
-      _currency = prefs.getString('currency') ?? _currency;
-      _calculationMode =
-          prefs.getString('calculation_mode') ?? _calculationMode;
-
-      // 初始化日薪和月薪 - 基于加载的数据
-      _calculateDailySalaryFromHourly();
-      _calculateMonthlySalaryFromDaily();
+      // 更新状态变量
+      if (savedHourlyRate != null) _hourlyRate = savedHourlyRate;
+      if (savedMonthlySalary != null) _monthlySalary = savedMonthlySalary;
+      if (savedDailySalary != null) _dailySalary = savedDailySalary;
+      if (savedWorkHoursPerDay != null) _workHoursPerDay = savedWorkHoursPerDay;
+      if (savedWorkDaysPerWeek != null) _workDaysPerWeek = savedWorkDaysPerWeek;
+      if (savedIncludeWeekends != null) _includeWeekends = savedIncludeWeekends;
+      if (savedEnableNotifications != null)
+        _enableNotifications = savedEnableNotifications;
+      if (savedTrackAchievements != null)
+        _trackAchievements = savedTrackAchievements;
+      if (savedCurrency != null) _currency = savedCurrency;
+      if (savedCalculationMode != null) _calculationMode = savedCalculationMode;
 
       // 更新控制器的值
       _monthlyController.text = _monthlySalary.toString();
@@ -1183,9 +1197,22 @@ class _ConfigScreenState extends State<ConfigScreen> {
   Future<void> _saveSettings() async {
     final timerService = Provider.of<TimerService>(context, listen: false);
     final dataProvider = Provider.of<DataProvider>(context, listen: false);
+    final prefs = await SharedPreferences.getInstance();
 
     // 更新时薪
     timerService.hourlyRate = _hourlyRate;
+
+    // 保存所有设置到 SharedPreferences
+    await prefs.setDouble('hourly_rate', _hourlyRate);
+    await prefs.setDouble('monthly_salary', _monthlySalary);
+    await prefs.setDouble('daily_salary', _dailySalary);
+    await prefs.setInt('work_hours_per_day', _workHoursPerDay);
+    await prefs.setInt('work_days_per_week', _workDaysPerWeek);
+    await prefs.setBool('include_weekends', _includeWeekends);
+    await prefs.setBool('enable_notifications', _enableNotifications);
+    await prefs.setBool('track_achievements', _trackAchievements);
+    await prefs.setString('currency', _currency);
+    await prefs.setString('calculation_mode', _calculationMode);
 
     // 使用 DataProvider 保存设置
     await dataProvider.saveHourlyRate(_hourlyRate);

@@ -57,10 +57,35 @@ class DataProvider extends ChangeNotifier {
     if (_isInitialized) return;
 
     await _dataService.initialize();
+
+    // 检查是否需要初始化默认设置
+    final hasSettings = await _dataService.hasInitializedSettings();
+    if (!hasSettings) {
+      await _initializeDefaultSettings();
+    }
+
     await _loadAllData();
 
     _isInitialized = true;
     notifyListeners();
+  }
+
+  // 初始化默认设置
+  Future<void> _initializeDefaultSettings() async {
+    // 设置默认值
+    const defaultHourlyRate = 50.0;
+    const defaultMonthlySalary = 8000.0;
+    const defaultWorkHoursPerDay = 8;
+    const defaultWorkDaysPerWeek = 5;
+
+    // 保存默认设置
+    await saveHourlyRate(defaultHourlyRate);
+    await _dataService.saveMonthlySalary(defaultMonthlySalary);
+    await _dataService.saveWorkHoursPerDay(defaultWorkHoursPerDay);
+    await _dataService.saveWorkDaysPerWeek(defaultWorkDaysPerWeek);
+
+    // 标记已初始化设置
+    await _dataService.markSettingsInitialized();
   }
 
   // 加载所有数据

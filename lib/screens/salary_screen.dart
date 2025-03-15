@@ -627,17 +627,24 @@ class _SalaryScreenState extends State<SalaryScreen>
                         children: [
                           _buildStatItem(
                             context,
-                            '目标进度',
-                            '35%',
-                            Icons.domain_verification,
+                            '累计时长',
+                            _formatDuration(
+                              timerService.todayTotalWorkDuration,
+                            ),
+                            Icons.access_time,
                           ),
                           _buildStatItem(
                             context,
-                            '预计结束',
-                            '18:30',
-                            Icons.schedule,
+                            '累计收入',
+                            '¥${timerService.todayTotalEarnings.toStringAsFixed(2)}',
+                            Icons.attach_money,
                           ),
-                          _buildStatItem(context, '今日目标', '¥435', Icons.flag),
+                          _buildStatItem(
+                            context,
+                            '时薪',
+                            '¥${timerService.hourlyRate.toStringAsFixed(2)}',
+                            Icons.trending_up,
+                          ),
                         ],
                       ),
                     ],

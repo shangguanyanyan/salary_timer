@@ -34,6 +34,9 @@ void main() async {
   // 设置VaultServiceLocator
   VaultServiceLocator.instance.vaultService = vaultService;
 
+  // 初始化 TimerService
+  await timerService.initialize();
+
   runApp(
     MultiProvider(
       providers: [
