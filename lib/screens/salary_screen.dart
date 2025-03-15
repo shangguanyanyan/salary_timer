@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'notifications_screen.dart';
+import 'overtime_settings_screen.dart';
 import '../services/notification_service.dart';
 import '../services/timer_service.dart';
 import '../main.dart';
@@ -212,14 +213,9 @@ class _SalaryScreenState extends State<SalaryScreen>
                         const SizedBox(height: 32),
 
                         // Main amount display
-                        TweenAnimationBuilder(
-                          tween: Tween<double>(
-                            begin: 0,
-                            end: timerService.currentSalary,
-                          ),
-                          duration: const Duration(milliseconds: 500),
-                          builder: (context, value, child) {
-                            return RichText(
+                        timerService.isWorking
+                            // 如果计时器正在运行，直接显示当前值，不做动画
+                            ? RichText(
                               text: TextSpan(
                                 children: [
                                   TextSpan(
@@ -234,7 +230,8 @@ class _SalaryScreenState extends State<SalaryScreen>
                                     ),
                                   ),
                                   TextSpan(
-                                    text: value.toStringAsFixed(2),
+                                    text: timerService.currentSalary
+                                        .toStringAsFixed(2),
                                     style: TextStyle(
                                       fontSize: 48,
                                       fontWeight: FontWeight.bold,
@@ -247,13 +244,289 @@ class _SalaryScreenState extends State<SalaryScreen>
                                   ),
                                 ],
                               ),
-                            );
-                          },
-                        ),
+                            )
+                            // 如果计时器停止，从0开始动画到当前值
+                            : TweenAnimationBuilder<double>(
+                              tween: Tween<double>(
+                                begin: 0,
+                                end: timerService.currentSalary,
+                              ),
+                              duration: const Duration(milliseconds: 500),
+                              builder: (context, value, child) {
+                                return RichText(
+                                  text: TextSpan(
+                                    children: [
+                                      TextSpan(
+                                        text: '¥ ',
+                                        style: TextStyle(
+                                          fontSize: 24,
+                                          fontWeight: FontWeight.w500,
+                                          color:
+                                              Theme.of(
+                                                context,
+                                              ).colorScheme.secondary,
+                                        ),
+                                      ),
+                                      TextSpan(
+                                        text: value.toStringAsFixed(2),
+                                        style: TextStyle(
+                                          fontSize: 48,
+                                          fontWeight: FontWeight.bold,
+                                          color:
+                                              Theme.of(
+                                                context,
+                                              ).colorScheme.secondary,
+                                          letterSpacing: -1,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
                         const SizedBox(height: 32),
 
                         const Divider(),
                         const SizedBox(height: 16),
+
+                        // 加班信息显示
+                        Consumer<TimerService>(
+                          builder: (context, timerService, child) {
+                            if (timerService.enableOvertimeCalculation &&
+                                timerService.overtimeTime.inSeconds > 0) {
+                              return Column(
+                                children: [
+                                  // 加班信息卡片
+                                  Container(
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.primary.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.primary.withOpacity(0.3),
+                                      ),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Icon(
+                                              Icons.access_time_filled,
+                                              color:
+                                                  Theme.of(
+                                                    context,
+                                                  ).colorScheme.secondary,
+                                              size: 20,
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              '加班信息',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.w500,
+                                                color:
+                                                    Theme.of(
+                                                      context,
+                                                    ).colorScheme.primary,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 12),
+                                        Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  '正常工作',
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    color:
+                                                        Theme.of(
+                                                          context,
+                                                        ).colorScheme.tertiary,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  _formatDuration(
+                                                    timerService.regularTime,
+                                                  ),
+                                                  style: TextStyle(
+                                                    fontFamily: 'monospace',
+                                                    fontWeight: FontWeight.bold,
+                                                    color:
+                                                        Theme.of(
+                                                          context,
+                                                        ).colorScheme.primary,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  '加班时间',
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    color:
+                                                        Theme.of(
+                                                          context,
+                                                        ).colorScheme.tertiary,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  _formatDuration(
+                                                    timerService.overtimeTime,
+                                                  ),
+                                                  style: TextStyle(
+                                                    fontFamily: 'monospace',
+                                                    fontWeight: FontWeight.bold,
+                                                    color:
+                                                        Theme.of(
+                                                          context,
+                                                        ).colorScheme.secondary,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  '加班倍率',
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    color:
+                                                        Theme.of(
+                                                          context,
+                                                        ).colorScheme.tertiary,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  '${timerService.overtimeRate.toStringAsFixed(1)}倍',
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    color:
+                                                        Theme.of(
+                                                          context,
+                                                        ).colorScheme.secondary,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 12),
+                                        Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  '正常收入',
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    color:
+                                                        Theme.of(
+                                                          context,
+                                                        ).colorScheme.tertiary,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  '¥${timerService.regularEarnings.toStringAsFixed(2)}',
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    color:
+                                                        Theme.of(
+                                                          context,
+                                                        ).colorScheme.primary,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  '加班收入',
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    color:
+                                                        Theme.of(
+                                                          context,
+                                                        ).colorScheme.tertiary,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  '¥${timerService.overtimeEarnings.toStringAsFixed(2)}',
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    color:
+                                                        Theme.of(
+                                                          context,
+                                                        ).colorScheme.secondary,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            TextButton(
+                                              onPressed: () {
+                                                // 导航到加班设置页面
+                                                Navigator.push(
+                                                  context,
+                                                  MaterialPageRoute(
+                                                    builder:
+                                                        (context) =>
+                                                            const OvertimeSettingsScreen(),
+                                                  ),
+                                                );
+                                              },
+                                              child: const Text('设置'),
+                                              style: TextButton.styleFrom(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 12,
+                                                      vertical: 6,
+                                                    ),
+                                                minimumSize: Size.zero,
+                                                tapTargetSize:
+                                                    MaterialTapTargetSize
+                                                        .shrinkWrap,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                ],
+                              );
+                            }
+                            return const SizedBox.shrink();
+                          },
+                        ),
 
                         // Rate information with financial styling
                         Container(

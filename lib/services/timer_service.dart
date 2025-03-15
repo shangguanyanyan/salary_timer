@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'vault_service.dart';
+import 'vault_service_locator.dart';
 
 class TimerService extends ChangeNotifier {
   double _currentSalary = 0.0;
@@ -27,6 +29,15 @@ class TimerService extends ChangeNotifier {
     false,
   ]; // 默认周一到周五工作
 
+  // 加班设置
+  bool _enableOvertimeCalculation = true; // 是否启用加班计算
+  int _regularHoursLimit = 8; // 正常工作时间上限（小时）
+  double _overtimeRate = 1.5; // 加班工资倍率，默认1.5倍
+  double _regularEarnings = 0.0; // 正常工作时间的收入
+  double _overtimeEarnings = 0.0; // 加班时间的收入
+  Duration _regularTime = Duration.zero; // 正常工作时间
+  Duration _overtimeTime = Duration.zero; // 加班时间
+
   // 获取当前薪资
   double get currentSalary => _currentSalary;
 
@@ -44,6 +55,15 @@ class TimerService extends ChangeNotifier {
   TimeOfDay get autoStartTime => _autoStartTime;
   TimeOfDay get autoEndTime => _autoEndTime;
   List<bool> get workDays => _workDays;
+
+  // 加班相关的getter
+  bool get enableOvertimeCalculation => _enableOvertimeCalculation;
+  int get regularHoursLimit => _regularHoursLimit;
+  double get overtimeRate => _overtimeRate;
+  double get regularEarnings => _regularEarnings;
+  double get overtimeEarnings => _overtimeEarnings;
+  Duration get regularTime => _regularTime;
+  Duration get overtimeTime => _overtimeTime;
 
   // 设置时薪
   set hourlyRate(double rate) {
@@ -96,6 +116,31 @@ class TimerService extends ChangeNotifier {
     }
   }
 
+  // 设置是否启用加班计算
+  set enableOvertimeCalculation(bool enabled) {
+    _enableOvertimeCalculation = enabled;
+    _saveSettings();
+    notifyListeners();
+  }
+
+  // 设置正常工作时间上限
+  set regularHoursLimit(int hours) {
+    if (hours > 0 && hours <= 24) {
+      _regularHoursLimit = hours;
+      _saveSettings();
+      notifyListeners();
+    }
+  }
+
+  // 设置加班工资倍率
+  set overtimeRate(double rate) {
+    if (rate > 0) {
+      _overtimeRate = rate;
+      _saveSettings();
+      notifyListeners();
+    }
+  }
+
   TimerService() {
     _loadSettings();
   }
@@ -120,6 +165,12 @@ class TimerService extends ChangeNotifier {
       _workDays[i] =
           prefs.getBool('work_day_$i') ?? (i > 0 && i < 6); // 默认周一到周五
     }
+
+    // 加载加班设置
+    _enableOvertimeCalculation =
+        prefs.getBool('enable_overtime_calculation') ?? true;
+    _regularHoursLimit = prefs.getInt('regular_hours_limit') ?? 8;
+    _overtimeRate = prefs.getDouble('overtime_rate') ?? 1.5;
 
     // 如果之前在工作，恢复计时器状态
     final wasWorking = prefs.getBool('is_working') ?? false;
@@ -155,6 +206,11 @@ class TimerService extends ChangeNotifier {
     for (int i = 0; i < 7; i++) {
       prefs.setBool('work_day_$i', _workDays[i]);
     }
+
+    // 保存加班设置
+    prefs.setBool('enable_overtime_calculation', _enableOvertimeCalculation);
+    prefs.setInt('regular_hours_limit', _regularHoursLimit);
+    prefs.setDouble('overtime_rate', _overtimeRate);
 
     if (_isWorking) {
       prefs.setInt('start_time', _startTime.millisecondsSinceEpoch);
@@ -262,12 +318,21 @@ class TimerService extends ChangeNotifier {
   }
 
   void _toggleTimer() {
+    final wasWorking = _isWorking; // 保存之前的状态
+    final previousSalary = _currentSalary; // 保存之前的薪资
+    final previousRegularEarnings = _regularEarnings; // 保存之前的正常工作收入
+    final previousOvertimeEarnings = _overtimeEarnings; // 保存之前的加班收入
+
     _isWorking = !_isWorking;
 
     if (_isWorking) {
-      // 如果是新开始的工作，重置开始时间
+      // 如果是新开始的工作，重置开始时间和收入
       if (_elapsedTime.inSeconds == 0) {
         _startTime = DateTime.now();
+        _regularEarnings = 0.0;
+        _overtimeEarnings = 0.0;
+        _regularTime = Duration.zero;
+        _overtimeTime = Duration.zero;
       } else {
         // 如果是恢复工作，调整开始时间以保持已经工作的时间
         _startTime = DateTime.now().subtract(_elapsedTime);
@@ -277,13 +342,64 @@ class TimerService extends ChangeNotifier {
       _timer = Timer.periodic(const Duration(seconds: 1), (_) {
         final now = DateTime.now();
         _elapsedTime = now.difference(_startTime);
-        // 根据已经工作的时间（小时）* 时薪计算收入
-        _currentSalary = _elapsedTime.inSeconds * (_hourlyRate / 3600);
+
+        // 计算正常工作时间和加班时间
+        if (_enableOvertimeCalculation) {
+          final regularLimitSeconds = _regularHoursLimit * 3600; // 转换为秒
+
+          if (_elapsedTime.inSeconds <= regularLimitSeconds) {
+            // 全部是正常工作时间
+            _regularTime = _elapsedTime;
+            _overtimeTime = Duration.zero;
+
+            // 计算正常工作收入
+            _regularEarnings = _regularTime.inSeconds * (_hourlyRate / 3600);
+            _overtimeEarnings = 0.0;
+          } else {
+            // 部分是正常工作时间，部分是加班时间
+            _regularTime = Duration(seconds: regularLimitSeconds);
+            _overtimeTime = Duration(
+              seconds: _elapsedTime.inSeconds - regularLimitSeconds,
+            );
+
+            // 计算正常工作收入和加班收入
+            _regularEarnings = _regularTime.inSeconds * (_hourlyRate / 3600);
+            _overtimeEarnings =
+                _overtimeTime.inSeconds * (_hourlyRate / 3600 * _overtimeRate);
+          }
+
+          // 总收入是正常工作收入加上加班收入
+          _currentSalary = _regularEarnings + _overtimeEarnings;
+        } else {
+          // 不计算加班，所有时间都按正常工资计算
+          _regularTime = _elapsedTime;
+          _overtimeTime = Duration.zero;
+          _regularEarnings = _elapsedTime.inSeconds * (_hourlyRate / 3600);
+          _overtimeEarnings = 0.0;
+          _currentSalary = _regularEarnings;
+        }
+
         notifyListeners();
       });
     } else {
       // 停止计时器
       _timer?.cancel();
+
+      // 如果之前在工作，且有收入，则添加到金库
+      if (wasWorking && previousSalary > 0) {
+        // 尝试获取VaultService实例并添加收入
+        try {
+          // 注意：这里需要在main.dart中提供一个全局的VaultService实例
+          final vaultService = VaultServiceLocator.instance.vaultService;
+          if (vaultService != null) {
+            vaultService.addEarning(previousSalary, _elapsedTime, _hourlyRate);
+          }
+        } catch (e) {
+          if (kDebugMode) {
+            print('Error adding earning to vault: $e');
+          }
+        }
+      }
     }
 
     notifyListeners();
@@ -294,7 +410,11 @@ class TimerService extends ChangeNotifier {
     _timer?.cancel();
     _isWorking = false;
     _currentSalary = 0.0;
+    _regularEarnings = 0.0;
+    _overtimeEarnings = 0.0;
     _elapsedTime = Duration.zero;
+    _regularTime = Duration.zero;
+    _overtimeTime = Duration.zero;
     _startTime = DateTime.now();
     _saveSettings();
     notifyListeners();

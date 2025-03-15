@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'notifications_screen.dart';
 import 'auto_timing_screen.dart';
+import 'overtime_settings_screen.dart';
 import '../services/notification_service.dart';
 import '../services/timer_service.dart';
 
@@ -1040,6 +1041,27 @@ class _ConfigScreenState extends State<ConfigScreen> {
                               context,
                               MaterialPageRoute(
                                 builder: (context) => const AutoTimingScreen(),
+                              ),
+                            );
+                          },
+                        ),
+
+                        // 加班设置入口
+                        const Divider(height: 1, indent: 70),
+                        ListTile(
+                          title: const Text('加班设置'),
+                          subtitle: const Text('设置加班时间和加班工资倍率'),
+                          leading: Icon(
+                            Icons.access_time_filled,
+                            color: Theme.of(context).colorScheme.secondary,
+                          ),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder:
+                                    (context) => const OvertimeSettingsScreen(),
                               ),
                             );
                           },

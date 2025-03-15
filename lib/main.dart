@@ -5,15 +5,25 @@ import 'screens/salary_screen.dart';
 import 'screens/config_screen.dart';
 import 'screens/achievements_screen.dart';
 import 'screens/notifications_screen.dart';
+import 'screens/vault_screen.dart';
 import 'services/notification_service.dart';
 import 'services/timer_service.dart';
+import 'services/vault_service.dart';
+import 'services/vault_service_locator.dart';
 
 void main() {
+  // 创建服务实例
+  final vaultService = VaultService();
+
+  // 设置VaultServiceLocator
+  VaultServiceLocator.instance.vaultService = vaultService;
+
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => NotificationService()),
         ChangeNotifierProvider(create: (_) => TimerService()),
+        ChangeNotifierProvider(create: (_) => vaultService),
       ],
       child: const MyApp(),
     ),
@@ -325,6 +335,7 @@ class _MainScreenState extends State<MainScreen> {
   final List<Widget> _screens = [
     const HomeScreen(),
     const SalaryScreen(),
+    const VaultScreen(),
     const ConfigScreen(),
     const AchievementsScreen(),
   ];
@@ -380,6 +391,17 @@ class _MainScreenState extends State<MainScreen> {
                 color: Theme.of(context).colorScheme.secondary,
               ),
               label: '薪资',
+            ),
+            NavigationDestination(
+              icon: Icon(
+                Icons.account_balance_outlined,
+                color: Theme.of(context).colorScheme.tertiary,
+              ),
+              selectedIcon: Icon(
+                Icons.account_balance,
+                color: Theme.of(context).colorScheme.secondary,
+              ),
+              label: '金库',
             ),
             NavigationDestination(
               icon: Icon(
