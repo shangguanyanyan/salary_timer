@@ -868,4 +868,29 @@ class TimerService extends ChangeNotifier {
       toggleTimer();
     }
   }
+
+  // 当前会话收入
+  double get currentEarnings {
+    if (!_isWorking) return 0;
+    final now = DateTime.now();
+    final duration = now.difference(_startTime);
+    return _calculateEarnings(duration);
+  }
+
+  double _calculateEarnings(Duration duration) {
+    final hours = duration.inMinutes / 60.0;
+    double earnings = 0.0;
+
+    if (_enableOvertimeCalculation && hours > _regularHoursLimit) {
+      // 计算正常工时收入
+      earnings += _regularHoursLimit * _hourlyRate;
+      // 计算加班收入
+      final overtimeHours = hours - _regularHoursLimit;
+      earnings += overtimeHours * _hourlyRate * _overtimeRate;
+    } else {
+      earnings = hours * _hourlyRate;
+    }
+
+    return earnings;
+  }
 }
