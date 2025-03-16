@@ -150,7 +150,7 @@ class _SalaryScreenState extends State<SalaryScreen>
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
-                                  timerService.isWorking ? '已赚' : '要开始赚钱咯',
+                                  timerService.isWorking ? '已赚' : '开始赚钱啦！',
                                   style: TextStyle(
                                     color:
                                         timerService.isWorking
@@ -462,7 +462,7 @@ class _SalaryScreenState extends State<SalaryScreen>
                 context,
                 '累计收入',
                 '$_currency${timerService.todayTotalEarnings.toStringAsFixed(2)}',
-                Icons.attach_money,
+                Icons.account_balance_wallet,
               ),
               _buildStatItem(
                 context,
