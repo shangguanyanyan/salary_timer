@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:lottie/lottie.dart';
+import 'package:just_audio/just_audio.dart';
 import 'notifications_screen.dart';
 import 'overtime_settings_screen.dart';
 import '../services/notification_service.dart';
@@ -19,6 +20,11 @@ class _SalaryScreenState extends State<SalaryScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   String _currency = '¥';
+  double _lastSalary = 0.0;
+  bool _showMilestoneAnimation = false;
+
+  // 音频播放器
+  final AudioPlayer _milestoneAudioPlayer = AudioPlayer();
 
   @override
   void initState() {
@@ -34,9 +40,34 @@ class _SalaryScreenState extends State<SalaryScreen>
       if (timerService.isWorking) {
         _animationController.repeat(reverse: true);
       }
+
+      // 初始化上次金额，防止切换tab时触发动画
+      _lastSalary = timerService.currentSalary;
     });
 
     _loadCurrencySetting();
+    _initAudio();
+  }
+
+  // 初始化音频
+  Future<void> _initAudio() async {
+    try {
+      // 初始化里程碑音效
+      await _milestoneAudioPlayer.setAsset('assets/audio/milestone_sound.wav');
+      await _milestoneAudioPlayer.setVolume(0.8);
+    } catch (e) {
+      debugPrint('音频初始化失败: $e');
+    }
+  }
+
+  // 播放里程碑音效
+  void _playMilestoneSound() async {
+    try {
+      await _milestoneAudioPlayer.seek(Duration.zero);
+      await _milestoneAudioPlayer.play();
+    } catch (e) {
+      debugPrint('里程碑音效播放失败: $e');
+    }
   }
 
   Future<void> _loadCurrencySetting() async {
@@ -48,6 +79,7 @@ class _SalaryScreenState extends State<SalaryScreen>
 
   @override
   void dispose() {
+    _milestoneAudioPlayer.dispose();
     _animationController.dispose();
     super.dispose();
   }
@@ -65,12 +97,55 @@ class _SalaryScreenState extends State<SalaryScreen>
     }
   }
 
+  // 检查是否达到里程碑（每10元）
+  void _checkMilestone(double currentSalary) {
+    // 如果金额为0，重置上次金额并返回
+    if (currentSalary == 0) {
+      _lastSalary = 0;
+      return;
+    }
+
+    // 如果是首次加载页面，只记录金额，不触发动画
+    if (_lastSalary == 0) {
+      _lastSalary = currentSalary;
+      return;
+    }
+
+    // 获取当前和上次金额的10元区间
+    int currentMilestone = (currentSalary / 10).floor();
+    int lastMilestone = (_lastSalary / 10).floor();
+
+    // 如果跨越了一个新的10元区间，且当前金额大于上次金额（确保是在增长）
+    if (currentMilestone > lastMilestone && currentSalary > _lastSalary) {
+      setState(() {
+        _showMilestoneAnimation = true;
+      });
+
+      // 播放里程碑音效
+      _playMilestoneSound();
+
+      // 1.5秒后隐藏动画
+      Future.delayed(const Duration(milliseconds: 1500), () {
+        if (mounted) {
+          setState(() {
+            _showMilestoneAnimation = false;
+          });
+        }
+      });
+    }
+
+    _lastSalary = currentSalary;
+  }
+
   @override
   Widget build(BuildContext context) {
     final timerService = Provider.of<TimerService>(context);
     final notificationService = Provider.of<NotificationService>(context);
     final dataProvider = Provider.of<DataProvider>(context);
     final unreadCount = notificationService.unreadCount;
+
+    // 检查里程碑
+    _checkMilestone(timerService.currentSalary);
 
     return Scaffold(
       appBar: AppBar(
@@ -204,51 +279,69 @@ class _SalaryScreenState extends State<SalaryScreen>
                             const SizedBox(height: 32),
 
                             // Main amount display
-                            SizedBox(
-                              height: 72, // 固定高度，防止动画时布局抖动
-                              child: AnimatedBuilder(
-                                animation: _animationController,
-                                builder: (context, child) {
-                                  return Transform.scale(
-                                    scale:
-                                        1.0 +
-                                        (_animationController.value * 0.1),
-                                    child: RichText(
-                                      text: TextSpan(
-                                        children: [
-                                          TextSpan(
-                                            text: _currency,
-                                            style: TextStyle(
-                                              fontSize: 48,
-                                              fontWeight: FontWeight.bold,
-                                              color:
-                                                  Theme.of(
-                                                    context,
-                                                  ).colorScheme.secondary,
-                                              letterSpacing: -1,
-                                            ),
+                            Stack(
+                              children: [
+                                SizedBox(
+                                  height: 72,
+                                  child: AnimatedBuilder(
+                                    animation: _animationController,
+                                    builder: (context, child) {
+                                      return Transform.scale(
+                                        scale:
+                                            1.0 +
+                                            (_animationController.value * 0.1),
+                                        child: RichText(
+                                          text: TextSpan(
+                                            children: [
+                                              TextSpan(
+                                                text: _currency,
+                                                style: TextStyle(
+                                                  fontSize: 48,
+                                                  fontWeight: FontWeight.bold,
+                                                  color:
+                                                      Theme.of(
+                                                        context,
+                                                      ).colorScheme.secondary,
+                                                  letterSpacing: -1,
+                                                ),
+                                              ),
+                                              TextSpan(
+                                                text:
+                                                    ' ${timerService.currentSalary.toStringAsFixed(2)}',
+                                                style: TextStyle(
+                                                  fontSize: 48,
+                                                  fontWeight: FontWeight.bold,
+                                                  color:
+                                                      Theme.of(
+                                                        context,
+                                                      ).colorScheme.secondary,
+                                                  letterSpacing: -1,
+                                                ),
+                                              ),
+                                            ],
                                           ),
-                                          TextSpan(
-                                            text:
-                                                ' ${timerService.currentSalary.toStringAsFixed(2)}',
-                                            style: TextStyle(
-                                              fontSize: 48,
-                                              fontWeight: FontWeight.bold,
-                                              color:
-                                                  Theme.of(
-                                                    context,
-                                                  ).colorScheme.secondary,
-                                              letterSpacing: -1,
-                                            ),
-                                          ),
-                                        ],
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                                // 里程碑动画层
+                                if (_showMilestoneAnimation)
+                                  Positioned.fill(
+                                    child: Center(
+                                      child: SizedBox(
+                                        width: double.infinity, // 增大宽度
+                                        // 增大高度
+                                        child: Lottie.asset(
+                                          'assets/animations/coin_milestone.json',
+                                          repeat: false,
+                                          fit: BoxFit.cover,
+                                        ),
                                       ),
                                     ),
-                                  );
-                                },
-                              ),
+                                  ),
+                              ],
                             ),
-                            const SizedBox(height: 24),
 
                             // 工作状态卡片
                             Card(
@@ -380,7 +473,12 @@ class _SalaryScreenState extends State<SalaryScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('今日统计', style: Theme.of(context).textTheme.titleMedium),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('今日统计', style: Theme.of(context).textTheme.titleMedium),
+            ],
+          ),
           const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
