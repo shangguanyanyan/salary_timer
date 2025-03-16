@@ -336,54 +336,6 @@ class _SalaryScreenState extends State<SalaryScreen>
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 24),
-
-                            // Hourly rate display
-                            Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.surfaceVariant.withOpacity(0.3),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                  color:
-                                      Theme.of(
-                                        context,
-                                      ).colorScheme.surfaceVariant,
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  GestureDetector(
-                                    onTap: () {
-                                      _showHourlyRateExplanation(context);
-                                    },
-                                    child: Icon(
-                                      Icons.info_outline,
-                                      color:
-                                          Theme.of(
-                                            context,
-                                          ).colorScheme.tertiary,
-                                      size: 20,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      '时薪: $_currency${timerService.hourlyRate.toStringAsFixed(2)}/小时',
-                                      style: TextStyle(
-                                        color:
-                                            Theme.of(
-                                              context,
-                                            ).colorScheme.tertiary,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
                           ],
                         ),
                       ),
@@ -438,18 +390,21 @@ class _SalaryScreenState extends State<SalaryScreen>
                 '累计时长',
                 _formatDuration(timerService.todayTotalWorkDuration),
                 Icons.access_time,
+                null,
               ),
               _buildStatItem(
                 context,
                 '累计收入',
                 '$_currency${timerService.todayTotalEarnings.toStringAsFixed(2)}',
                 Icons.account_balance_wallet,
+                null,
               ),
               _buildStatItem(
                 context,
                 '时薪',
                 '$_currency${timerService.hourlyRate.toStringAsFixed(2)}',
                 Icons.trending_up,
+                () => _showHourlyRateExplanation(context),
               ),
             ],
           ),
@@ -463,22 +418,39 @@ class _SalaryScreenState extends State<SalaryScreen>
     String label,
     String value,
     IconData icon,
+    VoidCallback? onTap,
   ) {
-    return Column(
-      children: [
-        Icon(icon, size: 20, color: Theme.of(context).colorScheme.tertiary),
-        const SizedBox(height: 8),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: Theme.of(context).colorScheme.primary,
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Icon(icon, size: 20, color: Theme.of(context).colorScheme.tertiary),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).colorScheme.primary,
+            ),
           ),
-        ),
-        const SizedBox(height: 4),
-        Text(label, style: Theme.of(context).textTheme.bodySmall),
-      ],
+          const SizedBox(height: 4),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (label == '时薪') ...[
+                Icon(
+                  Icons.info_outline,
+                  size: 14,
+                  color: Theme.of(context).colorScheme.tertiary,
+                ),
+                const SizedBox(width: 4),
+              ],
+              Text(label, style: Theme.of(context).textTheme.bodySmall),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
