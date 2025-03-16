@@ -3,6 +3,7 @@ import '../database/data_service.dart';
 import '../models/earning_record.dart';
 import '../screens/notifications_screen.dart';
 import '../database/work_log_repository.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class DataProvider extends ChangeNotifier {
   final DataService _dataService = DataService.instance;
@@ -17,7 +18,7 @@ class DataProvider extends ChangeNotifier {
   Duration _weekWorkDuration = Duration.zero;
   Duration _monthWorkDuration = Duration.zero;
   int _unreadNotificationCount = 0;
-  double _hourlyRate = 0.0;
+  double _hourlyRate = 50.0;
   bool _overtimeEnabled = false;
   int _regularHoursLimit = 8;
   double _overtimeRate = 1.5;
@@ -29,6 +30,7 @@ class DataProvider extends ChangeNotifier {
   TimeOfDay _autoStartTime = const TimeOfDay(hour: 9, minute: 0);
   TimeOfDay _autoEndTime = const TimeOfDay(hour: 17, minute: 0);
   Map<String, double> _milestones = {};
+  String _currency = '¥';
 
   // 获取器
   double get todayEarnings => _todayEarnings;
@@ -51,6 +53,7 @@ class DataProvider extends ChangeNotifier {
   TimeOfDay get autoStartTime => _autoStartTime;
   TimeOfDay get autoEndTime => _autoEndTime;
   Map<String, double> get milestones => _milestones;
+  String get currency => _currency;
 
   // 初始化
   Future<void> initialize() async {
@@ -121,6 +124,7 @@ class DataProvider extends ChangeNotifier {
 
   // 加载设置数据
   Future<void> _loadSettings() async {
+    final prefs = await SharedPreferences.getInstance();
     _hourlyRate = await _dataService.getHourlyRate();
     _overtimeEnabled = await _dataService.getOvertimeEnabled();
     _regularHoursLimit = await _dataService.getRegularHoursLimit();
@@ -132,6 +136,8 @@ class DataProvider extends ChangeNotifier {
     _autoTimingEnabled = await _dataService.getAutoTimingEnabled();
     _autoStartTime = await _dataService.getAutoStartTime();
     _autoEndTime = await _dataService.getAutoEndTime();
+    _currency = prefs.getString('currency') ?? '¥';
+    notifyListeners();
   }
 
   // 加载里程碑数据
@@ -315,5 +321,13 @@ class DataProvider extends ChangeNotifier {
   // 检查里程碑是否已达成
   Future<bool> isMilestoneReached(String key) async {
     return await _dataService.isMilestoneReached(key);
+  }
+
+  // 保存货币
+  Future<void> saveCurrency(String currency) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('currency', currency);
+    _currency = currency;
+    notifyListeners();
   }
 }

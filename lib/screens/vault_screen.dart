@@ -6,8 +6,28 @@ import 'notifications_screen.dart';
 import '../services/notification_service.dart';
 import '../providers/data_provider.dart';
 
-class VaultScreen extends StatelessWidget {
+class VaultScreen extends StatefulWidget {
   const VaultScreen({super.key});
+
+  @override
+  State<VaultScreen> createState() => _VaultScreenState();
+}
+
+class _VaultScreenState extends State<VaultScreen> {
+  String _currency = '¥';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCurrencySetting();
+  }
+
+  Future<void> _loadCurrencySetting() async {
+    final dataProvider = Provider.of<DataProvider>(context, listen: false);
+    setState(() {
+      _currency = dataProvider.currency;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -151,7 +171,7 @@ class VaultScreen extends StatelessWidget {
               text: TextSpan(
                 children: [
                   TextSpan(
-                    text: '¥ ',
+                    text: '$_currency ',
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.w500,
@@ -255,14 +275,14 @@ class VaultScreen extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  '¥${dataProvider.totalEarnings.toStringAsFixed(2)}',
+                  '$_currency${dataProvider.totalEarnings.toStringAsFixed(2)}',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     color: Theme.of(context).colorScheme.secondary,
                   ),
                 ),
                 Text(
-                  '¥${dataProvider.savingGoal.toStringAsFixed(2)}',
+                  '$_currency${dataProvider.savingGoal.toStringAsFixed(2)}',
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.tertiary,
                   ),
@@ -310,17 +330,17 @@ class VaultScreen extends StatelessWidget {
                 _buildStatItem(
                   context,
                   '今日',
-                  '¥${dataProvider.todayEarnings.toStringAsFixed(2)}',
+                  '$_currency${dataProvider.todayEarnings.toStringAsFixed(2)}',
                 ),
                 _buildStatItem(
                   context,
                   '本周',
-                  '¥${dataProvider.weekEarnings.toStringAsFixed(2)}',
+                  '$_currency${dataProvider.weekEarnings.toStringAsFixed(2)}',
                 ),
                 _buildStatItem(
                   context,
                   '本月',
-                  '¥${dataProvider.monthEarnings.toStringAsFixed(2)}',
+                  '$_currency${dataProvider.monthEarnings.toStringAsFixed(2)}',
                 ),
               ],
             ),
@@ -429,7 +449,7 @@ class VaultScreen extends StatelessWidget {
                             ),
                           ),
                           Text(
-                            '¥${totalAmount.toStringAsFixed(2)}',
+                            '$_currency${totalAmount.toStringAsFixed(2)}',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               color: Theme.of(context).colorScheme.secondary,
@@ -452,7 +472,7 @@ class VaultScreen extends StatelessWidget {
                                 ),
                               ),
                               Text(
-                                '¥${record.amount.toStringAsFixed(2)} (${_formatDuration(record.workDuration)})',
+                                '$_currency${record.amount.toStringAsFixed(2)} (${_formatDuration(record.workDuration)})',
                                 style: const TextStyle(fontSize: 12),
                               ),
                             ],
@@ -530,119 +550,127 @@ class VaultScreen extends StatelessWidget {
                 child: Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 16.0),
-                        child: Text(
-                          '设置储蓄目标',
-                          style: Theme.of(context).textTheme.titleLarge,
-                        ),
-                      ),
-                      TextField(
-                        controller: nameController,
-                        decoration: const InputDecoration(
-                          labelText: '目标名称',
-                          hintText: '例如：新手机',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      TextField(
-                        controller: goalController,
-                        decoration: const InputDecoration(
-                          labelText: '目标金额',
-                          hintText: '例如：5000',
-                          prefixText: '¥',
-                          border: OutlineInputBorder(),
-                        ),
-                        keyboardType: TextInputType.number,
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              selectedDate != null
-                                  ? '截止日期: ${_formatDate(selectedDate!)}'
-                                  : '设置截止日期（可选）',
-                            ),
+                  child: GestureDetector(
+                    onTap: () {
+                      // 关闭所有输入框焦点
+                      FocusScope.of(context).unfocus();
+                    },
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 16.0),
+                          child: Text(
+                            '设置储蓄目标',
+                            style: Theme.of(context).textTheme.titleLarge,
                           ),
-                          TextButton(
-                            onPressed: () async {
-                              final date = await showDatePicker(
-                                context: context,
-                                initialDate:
-                                    selectedDate ??
-                                    DateTime.now().add(
-                                      const Duration(days: 30),
-                                    ),
-                                firstDate: DateTime.now(),
-                                lastDate: DateTime.now().add(
-                                  const Duration(days: 365 * 5),
-                                ),
-                              );
-                              if (date != null) {
-                                setState(() {
-                                  selectedDate = date;
-                                });
-                              }
-                            },
-                            child: Text(selectedDate != null ? '修改' : '选择'),
+                        ),
+                        TextField(
+                          controller: nameController,
+                          decoration: const InputDecoration(
+                            labelText: '目标名称',
+                            hintText: '例如：新手机',
+                            border: OutlineInputBorder(),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton(
-                              onPressed: () {
-                                Navigator.of(context).pop();
-                              },
-                              style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 12,
-                                ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: goalController,
+                          decoration: InputDecoration(
+                            labelText: '目标金额',
+                            hintText: '例如：5000',
+                            prefixText: _currency,
+                            border: const OutlineInputBorder(),
+                          ),
+                          keyboardType: TextInputType.number,
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                selectedDate != null
+                                    ? '截止日期: ${_formatDate(selectedDate!)}'
+                                    : '设置截止日期（可选）',
                               ),
-                              child: const Text('取消'),
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: () {
-                                final amount =
-                                    double.tryParse(goalController.text) ?? 0;
-                                if (amount <= 0) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('请输入有效的目标金额')),
-                                  );
-                                  return;
-                                }
-
-                                dataProvider.saveSavingGoal(
-                                  amount: amount,
-                                  name: nameController.text.trim(),
-                                  deadline: selectedDate,
+                            TextButton(
+                              onPressed: () async {
+                                final date = await showDatePicker(
+                                  context: context,
+                                  initialDate:
+                                      selectedDate ??
+                                      DateTime.now().add(
+                                        const Duration(days: 30),
+                                      ),
+                                  firstDate: DateTime.now(),
+                                  lastDate: DateTime.now().add(
+                                    const Duration(days: 365 * 5),
+                                  ),
                                 );
-                                Navigator.of(context).pop();
+                                if (date != null) {
+                                  setState(() {
+                                    selectedDate = date;
+                                  });
+                                }
                               },
-                              style: ElevatedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 12,
-                                ),
-                                backgroundColor:
-                                    Theme.of(context).colorScheme.secondary,
-                              ),
-                              child: const Text('保存'),
+                              child: Text(selectedDate != null ? '修改' : '选择'),
                             ),
-                          ),
-                        ],
-                      ),
-                    ],
+                          ],
+                        ),
+                        const SizedBox(height: 24),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () {
+                                  Navigator.of(context).pop();
+                                },
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
+                                ),
+                                child: const Text('取消'),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () {
+                                  final amount =
+                                      double.tryParse(goalController.text) ?? 0;
+                                  if (amount <= 0) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('请输入有效的目标金额'),
+                                      ),
+                                    );
+                                    return;
+                                  }
+
+                                  dataProvider.saveSavingGoal(
+                                    amount: amount,
+                                    name: nameController.text.trim(),
+                                    deadline: selectedDate,
+                                  );
+                                  Navigator.of(context).pop();
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
+                                  backgroundColor:
+                                      Theme.of(context).colorScheme.secondary,
+                                ),
+                                child: const Text('保存'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               );
@@ -737,13 +765,13 @@ class VaultScreen extends StatelessWidget {
                             return ExpansionTile(
                               title: Text(dateStr),
                               subtitle: Text(
-                                '¥${totalAmount.toStringAsFixed(2)}',
+                                '$_currency${totalAmount.toStringAsFixed(2)}',
                               ),
                               children:
                                   records.map((record) {
                                     return ListTile(
                                       title: Text(
-                                        '¥${record.amount.toStringAsFixed(2)}',
+                                        '$_currency${record.amount.toStringAsFixed(2)}',
                                       ),
                                       subtitle: Text(
                                         '工作时长: ${_formatDuration(record.workDuration)}',

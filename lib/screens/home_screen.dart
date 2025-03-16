@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:lottie/lottie.dart';
 import 'notifications_screen.dart';
+import 'overtime_settings_screen.dart';
 import '../services/notification_service.dart';
 import '../services/timer_service.dart';
 import '../services/vault_service.dart';
 import '../providers/data_provider.dart';
+import '../main.dart';
 
 // 视图类型枚举
 enum ViewType { day, week, month }
@@ -25,6 +28,8 @@ class _HomeScreenState extends State<HomeScreen>
   late AnimationController _animationController;
   late Animation<double> _animation;
 
+  String _currency = '¥';
+
   @override
   void initState() {
     super.initState();
@@ -39,6 +44,23 @@ class _HomeScreenState extends State<HomeScreen>
       parent: _animationController,
       curve: Curves.easeInOut,
     );
+
+    // 如果计时器正在运行，启动动画
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final timerService = Provider.of<TimerService>(context, listen: false);
+      if (timerService.isWorking) {
+        _animationController.repeat(reverse: true);
+      }
+    });
+
+    _loadCurrencySetting();
+  }
+
+  Future<void> _loadCurrencySetting() async {
+    final dataProvider = Provider.of<DataProvider>(context, listen: false);
+    setState(() {
+      _currency = dataProvider.currency;
+    });
   }
 
   @override
@@ -218,7 +240,7 @@ class _HomeScreenState extends State<HomeScreen>
                               );
                             },
                             child: Text(
-                              '¥ ${viewData.earnings.toStringAsFixed(2)}',
+                              '$_currency ${viewData.earnings.toStringAsFixed(2)}',
                               key: ValueKey<String>(
                                 '${_currentViewType}_${viewData.earnings}',
                               ),
@@ -344,7 +366,7 @@ class _HomeScreenState extends State<HomeScreen>
                           context,
                           Icons.trending_up,
                           '时薪',
-                          '¥${timerService.hourlyRate.toStringAsFixed(2)}/小时',
+                          '$_currency${timerService.hourlyRate.toStringAsFixed(2)}/小时',
                         ),
                         _buildDataCard(
                           context,
@@ -356,7 +378,7 @@ class _HomeScreenState extends State<HomeScreen>
                           context,
                           Icons.bar_chart,
                           _getTotalLabel(_currentViewType),
-                          '¥${viewData.totalEarnings.toStringAsFixed(2)}',
+                          '$_currency${viewData.totalEarnings.toStringAsFixed(2)}',
                         ),
                       ],
                     ),
@@ -391,7 +413,7 @@ class _HomeScreenState extends State<HomeScreen>
                               _buildTrendItem(
                                 context,
                                 _getAverageLabel(_currentViewType),
-                                '¥${viewData.averageEarnings.toStringAsFixed(2)}',
+                                '$_currency${viewData.averageEarnings.toStringAsFixed(2)}',
                                 viewData.isUpTrend,
                               ),
                               Container(
@@ -405,7 +427,7 @@ class _HomeScreenState extends State<HomeScreen>
                               _buildTrendItem(
                                 context,
                                 _getEstimateLabel(_currentViewType),
-                                '¥${viewData.estimatedEarnings.toStringAsFixed(2)}',
+                                '$_currency${viewData.estimatedEarnings.toStringAsFixed(2)}',
                                 true,
                               ),
                             ],
@@ -621,14 +643,11 @@ class _HomeScreenState extends State<HomeScreen>
 
   // 格式化时长
   String _formatDuration(Duration duration) {
-    final hours = duration.inHours;
-    final minutes = duration.inMinutes.remainder(60);
-
-    if (hours > 0) {
-      return '$hours小时${minutes > 0 ? ' $minutes分钟' : ''}';
-    } else {
-      return '$minutes分钟';
-    }
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    final hours = twoDigits(duration.inHours);
+    final minutes = twoDigits(duration.inMinutes.remainder(60));
+    final seconds = twoDigits(duration.inSeconds.remainder(60));
+    return '$hours:$minutes:$seconds';
   }
 
   Widget _buildDataCard(
@@ -753,6 +772,148 @@ class _HomeScreenState extends State<HomeScreen>
       case ViewType.month:
         _changeViewType(ViewType.week);
         break;
+    }
+  }
+
+  Widget _buildStatisticsSection(
+    BuildContext context,
+    DataProvider dataProvider,
+  ) {
+    final timerService = Provider.of<TimerService>(context);
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Theme.of(context).colorScheme.surfaceVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('今日统计', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildStatItem(
+                context,
+                '累计时长',
+                _formatDuration(timerService.todayTotalWorkDuration),
+                Icons.access_time,
+              ),
+              _buildStatItem(
+                context,
+                '累计收入',
+                '$_currency${timerService.todayTotalEarnings.toStringAsFixed(2)}',
+                Icons.attach_money,
+              ),
+              _buildStatItem(
+                context,
+                '时薪',
+                '$_currency${timerService.hourlyRate.toStringAsFixed(2)}',
+                Icons.trending_up,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatItem(
+    BuildContext context,
+    String label,
+    String value,
+    IconData icon,
+  ) {
+    return Column(
+      children: [
+        Icon(icon, size: 20, color: Theme.of(context).colorScheme.tertiary),
+        const SizedBox(height: 8),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(label, style: Theme.of(context).textTheme.bodySmall),
+      ],
+    );
+  }
+
+  // 显示时薪率解释弹窗
+  void _showHourlyRateExplanation(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Row(
+            children: [
+              Icon(
+                Icons.info_outline,
+                color: Theme.of(context).colorScheme.secondary,
+                size: 24,
+              ),
+              const SizedBox(width: 8),
+              const Text('时薪率说明'),
+            ],
+          ),
+          content: const SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '时薪率是指您每小时工作可以赚取的薪资金额。',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                SizedBox(height: 12),
+                Text('应用会根据这个时薪率和您已工作的时间来计算当前已赚取的薪资。'),
+                SizedBox(height: 8),
+                Text('计算公式为：当前薪资 = 已工作时间（秒）×（时薪率 ÷ 3600）'),
+                SizedBox(height: 12),
+                Text('您可以在配置页面通过三种方式设置您的薪资：'),
+                SizedBox(height: 4),
+                Text('• 直接输入时薪'),
+                Text('• 输入日薪（应用会根据每日工作小时数计算时薪）'),
+                Text('• 输入月薪（应用会根据每月工作天数和每日工作小时数计算时薪）'),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('了解了'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _navigateToConfigTab();
+              },
+              child: const Text('去调整'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // 切换到设置tab页面
+  void _navigateToConfigTab() {
+    // 使用通知机制切换到设置页面（索引为2）
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    try {
+      // 创建一个自定义通知，让MainScreen监听并处理
+      TabChangeNotification(3).dispatch(context);
+    } catch (e) {
+      scaffoldMessenger.showSnackBar(
+        const SnackBar(content: Text('无法切换到设置页面，请手动切换')),
+      );
     }
   }
 }

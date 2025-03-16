@@ -18,6 +18,7 @@ class SalaryScreen extends StatefulWidget {
 class _SalaryScreenState extends State<SalaryScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
+  String _currency = '¥';
 
   @override
   void initState() {
@@ -33,6 +34,15 @@ class _SalaryScreenState extends State<SalaryScreen>
       if (timerService.isWorking) {
         _animationController.repeat(reverse: true);
       }
+    });
+
+    _loadCurrencySetting();
+  }
+
+  Future<void> _loadCurrencySetting() async {
+    final dataProvider = Provider.of<DataProvider>(context, listen: false);
+    setState(() {
+      _currency = dataProvider.currency;
     });
   }
 
@@ -231,19 +241,20 @@ class _SalaryScreenState extends State<SalaryScreen>
                                   text: TextSpan(
                                     children: [
                                       TextSpan(
-                                        text: '¥ ',
+                                        text: _currency,
                                         style: TextStyle(
-                                          fontSize: 24,
-                                          fontWeight: FontWeight.w500,
+                                          fontSize: 48,
+                                          fontWeight: FontWeight.bold,
                                           color:
                                               Theme.of(
                                                 context,
                                               ).colorScheme.secondary,
+                                          letterSpacing: -1,
                                         ),
                                       ),
                                       TextSpan(
-                                        text: timerService.currentSalary
-                                            .toStringAsFixed(2),
+                                        text:
+                                            ' ${timerService.currentSalary.toStringAsFixed(2)}',
                                         style: TextStyle(
                                           fontSize: 48,
                                           fontWeight: FontWeight.bold,
@@ -270,18 +281,20 @@ class _SalaryScreenState extends State<SalaryScreen>
                                       text: TextSpan(
                                         children: [
                                           TextSpan(
-                                            text: '¥ ',
+                                            text: _currency,
                                             style: TextStyle(
-                                              fontSize: 24,
-                                              fontWeight: FontWeight.w500,
+                                              fontSize: 48,
+                                              fontWeight: FontWeight.bold,
                                               color:
                                                   Theme.of(
                                                     context,
                                                   ).colorScheme.secondary,
+                                              letterSpacing: -1,
                                             ),
                                           ),
                                           TextSpan(
-                                            text: value.toStringAsFixed(2),
+                                            text:
+                                                ' ${value.toStringAsFixed(2)}',
                                             style: TextStyle(
                                               fontSize: 48,
                                               fontWeight: FontWeight.bold,
@@ -408,7 +421,7 @@ class _SalaryScreenState extends State<SalaryScreen>
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Text(
-                                      '时薪: ¥${timerService.hourlyRate.toStringAsFixed(2)}/小时',
+                                      '时薪: $_currency${timerService.hourlyRate.toStringAsFixed(2)}/小时',
                                       style: TextStyle(
                                         color:
                                             Theme.of(
@@ -446,6 +459,51 @@ class _SalaryScreenState extends State<SalaryScreen>
           timerService.isWorking ? Icons.pause : Icons.play_arrow,
           color: Colors.white,
         ),
+      ),
+    );
+  }
+
+  Widget _buildStatisticsSection(
+    BuildContext context,
+    DataProvider dataProvider,
+  ) {
+    final timerService = Provider.of<TimerService>(context);
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Theme.of(context).colorScheme.surfaceVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('今日统计', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildStatItem(
+                context,
+                '累计时长',
+                _formatDuration(timerService.todayTotalWorkDuration),
+                Icons.access_time,
+              ),
+              _buildStatItem(
+                context,
+                '累计收入',
+                '$_currency${timerService.todayTotalEarnings.toStringAsFixed(2)}',
+                Icons.attach_money,
+              ),
+              _buildStatItem(
+                context,
+                '时薪',
+                '$_currency${timerService.hourlyRate.toStringAsFixed(2)}',
+                Icons.trending_up,
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -553,50 +611,5 @@ class _SalaryScreenState extends State<SalaryScreen>
         const SnackBar(content: Text('无法切换到设置页面，请手动切换')),
       );
     }
-  }
-
-  Widget _buildStatisticsSection(
-    BuildContext context,
-    DataProvider dataProvider,
-  ) {
-    final timerService = Provider.of<TimerService>(context);
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Theme.of(context).colorScheme.surfaceVariant),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('今日统计', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _buildStatItem(
-                context,
-                '累计时长',
-                _formatDuration(timerService.todayTotalWorkDuration),
-                Icons.access_time,
-              ),
-              _buildStatItem(
-                context,
-                '累计收入',
-                '¥${timerService.todayTotalEarnings.toStringAsFixed(2)}',
-                Icons.attach_money,
-              ),
-              _buildStatItem(
-                context,
-                '时薪',
-                '¥${timerService.hourlyRate.toStringAsFixed(2)}',
-                Icons.trending_up,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
   }
 }
