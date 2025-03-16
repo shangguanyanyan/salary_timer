@@ -13,8 +13,10 @@ class VaultScreen extends StatefulWidget {
   State<VaultScreen> createState() => _VaultScreenState();
 }
 
-class _VaultScreenState extends State<VaultScreen> {
+class _VaultScreenState extends State<VaultScreen>
+    with SingleTickerProviderStateMixin {
   String _currency = '¥';
+  bool _isFirstLoad = true; // 标记是否是首次加载
 
   @override
   void initState() {
@@ -26,6 +28,19 @@ class _VaultScreenState extends State<VaultScreen> {
     final dataProvider = Provider.of<DataProvider>(context, listen: false);
     setState(() {
       _currency = dataProvider.currency;
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // 在这里设置首次加载标记，确保在页面切换回来时不会再次触发动画
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_isFirstLoad) {
+        setState(() {
+          _isFirstLoad = false;
+        });
+      }
     });
   }
 
@@ -167,29 +182,63 @@ class _VaultScreenState extends State<VaultScreen> {
           children: [
             Text('金库总额', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 16),
-            RichText(
-              text: TextSpan(
-                children: [
-                  TextSpan(
-                    text: '$_currency ',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w500,
-                      color: Theme.of(context).colorScheme.secondary,
-                    ),
+            _isFirstLoad
+                ? TweenAnimationBuilder<double>(
+                  tween: Tween<double>(
+                    begin: 0.0,
+                    end: dataProvider.totalEarnings,
                   ),
-                  TextSpan(
-                    text: dataProvider.totalEarnings.toStringAsFixed(2),
-                    style: TextStyle(
-                      fontSize: 48,
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.secondary,
-                      letterSpacing: -1,
-                    ),
+                  duration: const Duration(milliseconds: 1500),
+                  curve: Curves.easeOutCubic,
+                  builder: (context, value, child) {
+                    return RichText(
+                      text: TextSpan(
+                        children: [
+                          TextSpan(
+                            text: '$_currency ',
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.w500,
+                              color: Theme.of(context).colorScheme.secondary,
+                            ),
+                          ),
+                          TextSpan(
+                            text: value.toStringAsFixed(2),
+                            style: TextStyle(
+                              fontSize: 48,
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.secondary,
+                              letterSpacing: -1,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                )
+                : RichText(
+                  text: TextSpan(
+                    children: [
+                      TextSpan(
+                        text: '$_currency ',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w500,
+                          color: Theme.of(context).colorScheme.secondary,
+                        ),
+                      ),
+                      TextSpan(
+                        text: dataProvider.totalEarnings.toStringAsFixed(2),
+                        style: TextStyle(
+                          fontSize: 48,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.secondary,
+                          letterSpacing: -1,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ),
+                ),
           ],
         ),
       ),
@@ -236,6 +285,18 @@ class _VaultScreenState extends State<VaultScreen> {
       );
     }
 
+    // 计算进度值
+    final progressValue =
+        dataProvider.savingGoal > 0
+            ? (dataProvider.totalEarnings / dataProvider.savingGoal).clamp(
+              0.0,
+              1.0,
+            )
+            : 0.0;
+
+    // 计算进度百分比
+    final progressPercent = (progressValue * 100).toStringAsFixed(1);
+
     // 显示目标进度卡片
     return Card(
       child: Container(
@@ -258,29 +319,60 @@ class _VaultScreenState extends State<VaultScreen> {
               ],
             ),
             const SizedBox(height: 16),
-            LinearProgressIndicator(
-              value:
-                  dataProvider.savingGoal > 0
-                      ? (dataProvider.totalEarnings / dataProvider.savingGoal)
-                          .clamp(0.0, 1.0)
-                      : 0.0,
-              minHeight: 8,
-              backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
-              valueColor: AlwaysStoppedAnimation<Color>(
-                Theme.of(context).colorScheme.secondary,
-              ),
-            ),
+            _isFirstLoad
+                ? TweenAnimationBuilder<double>(
+                  tween: Tween<double>(begin: 0.0, end: progressValue),
+                  duration: const Duration(milliseconds: 1500),
+                  curve: Curves.easeOutCubic,
+                  builder: (context, value, child) {
+                    return LinearProgressIndicator(
+                      value: value,
+                      minHeight: 8,
+                      backgroundColor:
+                          Theme.of(context).colorScheme.surfaceVariant,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        Theme.of(context).colorScheme.secondary,
+                      ),
+                    );
+                  },
+                )
+                : LinearProgressIndicator(
+                  value: progressValue,
+                  minHeight: 8,
+                  backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    Theme.of(context).colorScheme.secondary,
+                  ),
+                ),
             const SizedBox(height: 8),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  '$_currency${dataProvider.totalEarnings.toStringAsFixed(2)}',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.secondary,
-                  ),
-                ),
+                _isFirstLoad
+                    ? TweenAnimationBuilder<double>(
+                      tween: Tween<double>(
+                        begin: 0.0,
+                        end: dataProvider.totalEarnings,
+                      ),
+                      duration: const Duration(milliseconds: 1500),
+                      curve: Curves.easeOutCubic,
+                      builder: (context, value, child) {
+                        return Text(
+                          '$_currency${value.toStringAsFixed(2)}',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.secondary,
+                          ),
+                        );
+                      },
+                    )
+                    : Text(
+                      '$_currency${dataProvider.totalEarnings.toStringAsFixed(2)}',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.secondary,
+                      ),
+                    ),
                 Text(
                   '$_currency${dataProvider.savingGoal.toStringAsFixed(2)}',
                   style: TextStyle(
@@ -290,13 +382,31 @@ class _VaultScreenState extends State<VaultScreen> {
               ],
             ),
             const SizedBox(height: 8),
-            Text(
-              '进度: ${(dataProvider.totalEarnings / dataProvider.savingGoal * 100).clamp(0.0, 100.0).toStringAsFixed(1)}%',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-            ),
+            _isFirstLoad
+                ? TweenAnimationBuilder<double>(
+                  tween: Tween<double>(
+                    begin: 0.0,
+                    end: double.parse(progressPercent),
+                  ),
+                  duration: const Duration(milliseconds: 1500),
+                  curve: Curves.easeOutCubic,
+                  builder: (context, value, child) {
+                    return Text(
+                      '进度: ${value.toStringAsFixed(1)}%',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    );
+                  },
+                )
+                : Text(
+                  '进度: $progressPercent%',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
             if (dataProvider.goalDeadline != null) ...[
               const SizedBox(height: 8),
               Text(
@@ -331,22 +441,71 @@ class _VaultScreenState extends State<VaultScreen> {
                   context,
                   '今日',
                   '$_currency${dataProvider.todayEarnings.toStringAsFixed(2)}',
+                  dataProvider.todayEarnings,
                 ),
                 _buildStatItem(
                   context,
                   '本周',
                   '$_currency${dataProvider.weekEarnings.toStringAsFixed(2)}',
+                  dataProvider.weekEarnings,
                 ),
                 _buildStatItem(
                   context,
                   '本月',
                   '$_currency${dataProvider.monthEarnings.toStringAsFixed(2)}',
+                  dataProvider.monthEarnings,
                 ),
               ],
             ),
           ],
         ),
       ),
+    );
+  }
+
+  // 统计项目
+  Widget _buildStatItem(
+    BuildContext context,
+    String label,
+    String value, [
+    double? animatedValue,
+  ]) {
+    return Column(
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.tertiary,
+            fontSize: 12,
+          ),
+        ),
+        const SizedBox(height: 4),
+        if (_isFirstLoad && animatedValue != null)
+          TweenAnimationBuilder<double>(
+            tween: Tween<double>(begin: 0.0, end: animatedValue),
+            duration: const Duration(milliseconds: 1500),
+            curve: Curves.easeOutCubic,
+            builder: (context, value, child) {
+              return Text(
+                '$_currency${value.toStringAsFixed(2)}',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.secondary,
+                ),
+              );
+            },
+          )
+        else
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).colorScheme.secondary,
+            ),
+          ),
+      ],
     );
   }
 
@@ -500,27 +659,6 @@ class _VaultScreenState extends State<VaultScreen> {
           ),
         );
       },
-    );
-  }
-
-  // 统计项
-  Widget _buildStatItem(BuildContext context, String label, String value) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: Theme.of(context).colorScheme.secondary,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(color: Theme.of(context).colorScheme.tertiary),
-        ),
-      ],
     );
   }
 

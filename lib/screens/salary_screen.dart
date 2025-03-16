@@ -225,7 +225,7 @@ class _SalaryScreenState extends State<SalaryScreen>
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
-                                  timerService.isWorking ? '已赚' : '开始赚钱啦！',
+                                  timerService.isWorking ? '已赚' : '准备好开始赚钱了吗？',
                                   style: TextStyle(
                                     color:
                                         timerService.isWorking
