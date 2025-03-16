@@ -204,49 +204,16 @@ class _SalaryScreenState extends State<SalaryScreen>
                             const SizedBox(height: 32),
 
                             // Main amount display
-                            timerService.isWorking
-                                // 如果计时器正在运行，直接显示当前值，不做动画
-                                ? RichText(
-                                  text: TextSpan(
-                                    children: [
-                                      TextSpan(
-                                        text: _currency,
-                                        style: TextStyle(
-                                          fontSize: 48,
-                                          fontWeight: FontWeight.bold,
-                                          color:
-                                              Theme.of(
-                                                context,
-                                              ).colorScheme.secondary,
-                                          letterSpacing: -1,
-                                        ),
-                                      ),
-                                      TextSpan(
-                                        text:
-                                            ' ${timerService.currentSalary.toStringAsFixed(2)}',
-                                        style: TextStyle(
-                                          fontSize: 48,
-                                          fontWeight: FontWeight.bold,
-                                          color:
-                                              Theme.of(
-                                                context,
-                                              ).colorScheme.secondary,
-                                          letterSpacing: -1,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                )
-                                // 如果计时器停止，从0开始动画到当前值
-                                : TweenAnimationBuilder<double>(
-                                  tween: Tween<double>(
-                                    begin: 0.0,
-                                    end: timerService.currentSalary,
-                                  ),
-                                  duration: const Duration(milliseconds: 1500),
-                                  curve: Curves.easeOut,
-                                  builder: (context, value, child) {
-                                    return RichText(
+                            SizedBox(
+                              height: 72, // 固定高度，防止动画时布局抖动
+                              child: AnimatedBuilder(
+                                animation: _animationController,
+                                builder: (context, child) {
+                                  return Transform.scale(
+                                    scale:
+                                        1.0 +
+                                        (_animationController.value * 0.1),
+                                    child: RichText(
                                       text: TextSpan(
                                         children: [
                                           TextSpan(
@@ -263,7 +230,7 @@ class _SalaryScreenState extends State<SalaryScreen>
                                           ),
                                           TextSpan(
                                             text:
-                                                ' ${value.toStringAsFixed(2)}',
+                                                ' ${timerService.currentSalary.toStringAsFixed(2)}',
                                             style: TextStyle(
                                               fontSize: 48,
                                               fontWeight: FontWeight.bold,
@@ -276,9 +243,11 @@ class _SalaryScreenState extends State<SalaryScreen>
                                           ),
                                         ],
                                       ),
-                                    );
-                                  },
-                                ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
                             const SizedBox(height: 24),
 
                             // 工作状态卡片
@@ -291,65 +260,77 @@ class _SalaryScreenState extends State<SalaryScreen>
                                 height: 180,
                                 padding: const EdgeInsets.all(16),
                                 decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                    colors: [
-                                      Theme.of(context).colorScheme.surface,
-                                      Theme.of(
-                                        context,
-                                      ).colorScheme.surface.withOpacity(0.8),
-                                    ],
-                                  ),
                                   borderRadius: BorderRadius.circular(16),
                                 ),
-                                child: Column(
+                                child: Stack(
                                   children: [
-                                    // 状态标题
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Icon(
-                                          timerService.isWorking
-                                              ? Icons.work
-                                              : Icons.coffee,
-                                          color:
-                                              Theme.of(
-                                                context,
-                                              ).colorScheme.secondary,
-                                          size: 20,
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          timerService.isWorking
-                                              ? '正在工作'
-                                              : '休息中',
-                                          style: TextStyle(
-                                            color:
-                                                Theme.of(
-                                                  context,
-                                                ).colorScheme.secondary,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 12),
-                                    // 动画
-                                    Expanded(
+                                    // 背景动画层
+                                    Positioned.fill(
                                       child:
                                           timerService.isWorking
-                                              ? Lottie.asset(
-                                                'assets/animations/working.json',
-                                                fit: BoxFit.contain,
-                                                repeat: true,
+                                              ? Center(
+                                                child: SizedBox(
+                                                  width: 300, // 固定宽度
+                                                  height: 150, // 固定高度
+                                                  child: Lottie.asset(
+                                                    'assets/animations/money_background.json',
+                                                    fit: BoxFit.contain,
+                                                    repeat: true,
+                                                  ),
+                                                ),
                                               )
-                                              : Lottie.asset(
-                                                'assets/animations/resting.json',
-                                                fit: BoxFit.contain,
-                                                repeat: true,
+                                              : const SizedBox.shrink(),
+                                    ),
+                                    // 内容层
+                                    Column(
+                                      children: [
+                                        // 状态标题
+                                        Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            Icon(
+                                              timerService.isWorking
+                                                  ? Icons.work
+                                                  : Icons.coffee,
+                                              color:
+                                                  Theme.of(
+                                                    context,
+                                                  ).colorScheme.secondary,
+                                              size: 20,
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              timerService.isWorking
+                                                  ? '正在工作'
+                                                  : '休息中',
+                                              style: TextStyle(
+                                                color:
+                                                    Theme.of(
+                                                      context,
+                                                    ).colorScheme.secondary,
+                                                fontWeight: FontWeight.w500,
                                               ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 12),
+                                        // 主要动画
+                                        Expanded(
+                                          child:
+                                              timerService.isWorking
+                                                  ? Lottie.asset(
+                                                    'assets/animations/working.json',
+                                                    fit: BoxFit.contain,
+                                                    repeat: true,
+                                                  )
+                                                  : Lottie.asset(
+                                                    'assets/animations/resting.json',
+                                                    fit: BoxFit.contain,
+                                                    repeat: true,
+                                                  ),
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),
