@@ -134,37 +134,6 @@ class _SalaryScreenState extends State<SalaryScreen>
                   children: [
                     const SizedBox(height: 16),
 
-                    // Section title with animated indicator when working
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          '当前实时薪资',
-                          style: Theme.of(context).textTheme.titleLarge,
-                        ),
-                        const SizedBox(width: 8),
-                        if (timerService.isWorking)
-                          AnimatedBuilder(
-                            animation: _animationController,
-                            builder: (context, child) {
-                              return Container(
-                                width: 8,
-                                height: 8,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: Color.lerp(
-                                    Colors.green.withOpacity(0.5),
-                                    Colors.green,
-                                    _animationController.value,
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-
                     // Main earnings display
                     Card(
                       elevation: 4,
@@ -181,7 +150,7 @@ class _SalaryScreenState extends State<SalaryScreen>
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
-                                  timerService.isWorking ? '正在计时' : '计时已暂停',
+                                  timerService.isWorking ? '已赚' : '要开始赚钱咯',
                                   style: TextStyle(
                                     color:
                                         timerService.isWorking
