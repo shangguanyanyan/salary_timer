@@ -99,6 +99,16 @@ class _SalaryScreenState extends State<SalaryScreen>
 
   // 检查是否达到里程碑（每10元）
   void _checkMilestone(double currentSalary) {
+    final dataProvider = Provider.of<DataProvider>(context, listen: false);
+
+    // 如果禁用了里程碑提示音，直接返回
+    if (!dataProvider.milestoneSoundEnabled) {
+      return;
+    }
+
+    // 获取里程碑金额
+    final milestoneAmount = dataProvider.milestoneAmount;
+
     // 如果金额为0，重置上次金额并返回
     if (currentSalary == 0) {
       _lastSalary = 0;
@@ -111,11 +121,11 @@ class _SalaryScreenState extends State<SalaryScreen>
       return;
     }
 
-    // 获取当前和上次金额的10元区间
-    int currentMilestone = (currentSalary / 10).floor();
-    int lastMilestone = (_lastSalary / 10).floor();
+    // 获取当前和上次金额的里程碑区间
+    int currentMilestone = (currentSalary / milestoneAmount).floor();
+    int lastMilestone = (_lastSalary / milestoneAmount).floor();
 
-    // 如果跨越了一个新的10元区间，且当前金额大于上次金额（确保是在增长）
+    // 如果跨越了一个新的里程碑区间，且当前金额大于上次金额（确保是在增长）
     if (currentMilestone > lastMilestone && currentSalary > _lastSalary) {
       setState(() {
         _showMilestoneAnimation = true;
@@ -153,6 +163,12 @@ class _SalaryScreenState extends State<SalaryScreen>
         centerTitle: true,
         elevation: 0,
         actions: [
+          // 里程碑设置图标
+          IconButton(
+            icon: const Icon(Icons.music_note),
+            onPressed: () => _showMilestoneSettingsDialog(context),
+            tooltip: '里程碑音效设置',
+          ),
           Stack(
             alignment: Alignment.center,
             children: [
@@ -631,5 +647,133 @@ class _SalaryScreenState extends State<SalaryScreen>
         const SnackBar(content: Text('无法切换到设置页面，请手动切换')),
       );
     }
+  }
+
+  // 显示里程碑设置弹窗
+  void _showMilestoneSettingsDialog(BuildContext context) {
+    final dataProvider = Provider.of<DataProvider>(context, listen: false);
+
+    // 创建临时变量存储设置
+    bool soundEnabled = dataProvider.milestoneSoundEnabled ?? true;
+    double milestoneAmount = dataProvider.milestoneAmount ?? 10.0;
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: Row(
+                children: [
+                  Icon(
+                    Icons.music_note,
+                    color: Theme.of(context).colorScheme.secondary,
+                    size: 24,
+                  ),
+                  const SizedBox(width: 8),
+                  const Text('里程碑音效设置'),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 开启/关闭里程碑音效
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('启用里程碑音效'),
+                      Switch(
+                        value: soundEnabled,
+                        onChanged: (value) {
+                          setState(() {
+                            soundEnabled = value;
+                          });
+                        },
+                        activeColor: Theme.of(context).colorScheme.secondary,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '在达到收入里程碑时播放提示音',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).colorScheme.tertiary,
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // 里程碑金额设置
+                  if (soundEnabled) ...[
+                    const Text('里程碑金额'),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: TextEditingController(
+                        text: milestoneAmount.toString(),
+                      ),
+                      decoration: InputDecoration(
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        prefixText: _currency,
+                        hintText: '输入金额',
+                      ),
+                      keyboardType: TextInputType.number,
+                      onChanged: (value) {
+                        final amount = double.tryParse(value);
+                        if (amount != null && amount > 0) {
+                          setState(() {
+                            milestoneAmount = amount;
+                          });
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '每赚取该金额时播放一次提示音',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(context).colorScheme.tertiary,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text('取消'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    // 保存设置
+                    if (dataProvider.milestoneSoundEnabled != soundEnabled) {
+                      dataProvider.setMilestoneSoundEnabled(soundEnabled);
+                    }
+
+                    if (soundEnabled &&
+                        dataProvider.milestoneAmount != milestoneAmount) {
+                      dataProvider.setMilestoneAmount(milestoneAmount);
+                    }
+
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text('保存'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 }

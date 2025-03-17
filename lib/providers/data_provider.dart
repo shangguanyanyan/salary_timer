@@ -32,6 +32,10 @@ class DataProvider extends ChangeNotifier {
   Map<String, double> _milestones = {};
   String _currency = '¥';
 
+  // 里程碑音效设置
+  bool _milestoneSoundEnabled = true;
+  double _milestoneAmount = 10.0;
+
   // 获取器
   double get todayEarnings => _todayEarnings;
   double get weekEarnings => _weekEarnings;
@@ -54,6 +58,8 @@ class DataProvider extends ChangeNotifier {
   TimeOfDay get autoEndTime => _autoEndTime;
   Map<String, double> get milestones => _milestones;
   String get currency => _currency;
+  bool get milestoneSoundEnabled => _milestoneSoundEnabled;
+  double get milestoneAmount => _milestoneAmount;
 
   // 初始化
   Future<void> initialize() async {
@@ -137,6 +143,8 @@ class DataProvider extends ChangeNotifier {
     _autoStartTime = await _dataService.getAutoStartTime();
     _autoEndTime = await _dataService.getAutoEndTime();
     _currency = prefs.getString('currency') ?? '¥';
+    _milestoneSoundEnabled = prefs.getBool('milestoneSoundEnabled') ?? true;
+    _milestoneAmount = prefs.getDouble('milestoneAmount') ?? 10.0;
     notifyListeners();
   }
 
@@ -329,5 +337,28 @@ class DataProvider extends ChangeNotifier {
     await prefs.setString('currency', currency);
     _currency = currency;
     notifyListeners();
+  }
+
+  // 设置里程碑音效开关
+  Future<void> setMilestoneSoundEnabled(bool enabled) async {
+    _milestoneSoundEnabled = enabled;
+    await _saveMilestoneSettings();
+    notifyListeners();
+  }
+
+  // 设置里程碑金额
+  Future<void> setMilestoneAmount(double amount) async {
+    if (amount > 0) {
+      _milestoneAmount = amount;
+      await _saveMilestoneSettings();
+      notifyListeners();
+    }
+  }
+
+  // 保存里程碑设置
+  Future<void> _saveMilestoneSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('milestoneSoundEnabled', _milestoneSoundEnabled);
+    await prefs.setDouble('milestoneAmount', _milestoneAmount);
   }
 }
